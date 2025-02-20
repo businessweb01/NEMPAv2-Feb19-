@@ -620,11 +620,29 @@ app.get('/OnGoingLoans', async (req, res) => {
         name: `${row.fname} ${row.lname}`,
       }
     }));
-
+    console.log(loans.loanAmount);
     res.json(loans); // Send the loans data back as JSON
   } catch (err) {
     console.error('Database query failed', err);
     res.status(500).send('Error retrieving data from database');
+  }
+});
+
+app.post('/fetchLoanDetails', async (req, res) => {
+  const { loanId } = req.body;
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const result = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .query(`
+        SELECT *
+        FROM Loans
+        WHERE LoanRefNo = @loanId
+      `);
+    res.json(result.recordset[0]);
+  } catch (err) {
+    console.error('Error fetching loan details:', err);
+    res.status(500).json({ message: 'Error fetching loan details.' });
   }
 });
 

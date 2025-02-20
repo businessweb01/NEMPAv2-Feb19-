@@ -122,7 +122,6 @@ export default function OrderTable() {
       toast.error('Please enter who is releasing the loan', { autoClose: 2000, containerId: 'main-toast' });
       return;
     }
-  
     const releasedDate = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
   
     // Function to add 15 business days (skip weekends)
@@ -141,7 +140,6 @@ export default function OrderTable() {
   
       return result.toISOString().split('T')[0]; // Return in YYYY-MM-DD format
     };
-  
     const PaymentStartAt = addBusinessDays(releasedDate, 15); // Add 15 business days
     setPaymentStartAt(PaymentStartAt);
   
@@ -338,7 +336,7 @@ export default function OrderTable() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center' }}>
+                  <td colSpan="6" style={{ textAlign: 'center' }}>
                     <Typography variant="body-sm">No results found</Typography>
                   </td>
                 </tr>
@@ -443,10 +441,10 @@ export default function OrderTable() {
             Loan Details
           </Typography>
           <Stack spacing={1} mb={2}>
-            <Typography variant="body1">Loan ID: <b>{currentLoanId}</b></Typography>
+            <Typography variant="body1">Loan Ref No. : <b>{currentLoanId}</b></Typography>
             <Typography variant="body1">Loan Amount: <b><span>&#8369;</span>{loanAmount}</b></Typography>
-            <Typography variant="body1">Loan Date: <b>{formatDate(loanDate)}</b></Typography>
-            <Typography variant="body1">Payment Start At: <b>{PaymentStartAt}</b></Typography>
+            <Typography variant="body1">Application Date: <b>{formatDate(loanDate)}</b></Typography>
+            <Typography variant="body1">Initial Payment Date: <b>{formatDate(PaymentStartAt)}</b></Typography>
             <Typography variant="body1">Client Name: <b>{clientName}</b></Typography>
           </Stack>
 
