@@ -1,0 +1,1332 @@
+// const Skeleton = styled('div')(({ theme, height }) => ({
+//   backgroundColor: theme.palette.action.hover,
+//   borderRadius: theme.shape.borderRadius,
+//   height,
+//   content: '" "',
+// }))
+
+
+import * as React from 'react';
+import { ReactRouterAppProvider } from '@toolpad/core/react-router';
+import { Outlet } from 'react-router';
+import { AppProvider } from '@toolpad/core/AppProvider';
+import { DashboardLayout } from '@toolpad/core/DashboardLayout';
+import { PageContainer } from '@toolpad/core/PageContainer';
+import { createTheme } from '@mui/material/styles';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+
+// Pages
+import ClientInfo from './pages/DE_client_info';
+import Loan from './pages/DE_Loan';
+import Payment from './pages/DE_of_payment';
+
+// MUI Icons
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import AssuredWorkloadIcon from '@mui/icons-material/AssuredWorkload';
+import CreditScoreIcon from '@mui/icons-material/CreditScore';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+
+const theme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#00796b', // Teal green
+    },
+    background: {
+      default: '#f5f5f5',
+      paper: '#ffffff',
+    },
+  },
+});
+
+const NAVIGATION = [
+  {
+    segment: 'dashboard',
+    title: 'Dashboard',
+    icon: <DashboardIcon />,
+  },
+  {
+    segment: 'loans',
+    title: 'Loans',
+    icon: <AccountBalanceIcon />,
+    children: [
+      {
+        segment: 'Pending',
+        title: 'Pending Loans',
+        icon: <PendingActionsIcon />,
+      },
+      {
+        segment: 'OnGoing',
+        title: 'On Going Loans',
+        icon: <AssuredWorkloadIcon />,
+      },
+      {
+        segment: 'Paid',
+        title: 'Paid Loans',
+        icon: <CreditScoreIcon />,
+      },
+    ],
+  },
+  {
+    segment: 'integrations',
+    title: 'Transaction History',
+    icon: <ReceiptLongIcon />,
+  },
+];
+
+function CustomAppTitle() {
+  return (
+    <Stack direction="row" alignItems="center" spacing={2}>
+      <Typography variant="h6">Loan Application</Typography>
+    </Stack>
+  );
+}
+
+export default function DashboardLayoutBasic(props) {
+  return (
+    <ReactRouterAppProvider navigation={NAVIGATION} theme={theme}>
+      <DashboardLayout
+        slots={{
+          appTitle: CustomAppTitle,
+        }}
+      >
+        <Outlet />
+      </DashboardLayout>
+    </ReactRouterAppProvider>
+  );
+}
+|
+
+  {
+    segment: 'dashboard',
+    title: 'Dashboard',
+    icon: <DashboardIcon />,
+  },
+  {
+    segment: 'orders',
+    title: 'Loans',
+    icon: <AccountBalanceIcon />,
+    children: [
+      {
+        segment: 'Pending',
+        title: 'Pending Loans',
+        icon: <PendingActionsIcon />,
+        action: (
+          <Chip
+            label={5}
+            color="warning"
+            style={{ backgroundColor: '#023e8a', color: '#ffffff', fontWeight: 'bold' }}
+          />
+        ),
+        route: '/orders/Pending', // Correct route for Pending Loans
+        component: <ClientInfo />, // Rendering ClientInfo for Pending Loans
+      },
+      {
+        segment: 'OnGoing',
+        title: 'On Going Loans',
+        icon: <AssuredWorkloadIcon />,
+        action: (
+          <Chip
+            label={5}
+            color="warning"
+            style={{ backgroundColor: '#023e8a', color: '#ffffff', fontWeight: 'bold' }}
+          />
+        ),
+        route: '/orders/OnGoing', // Correct route for On Going Loans
+        component: <Loan />, // Rendering Loan component for On Going Loans
+      },
+      {
+        segment: 'Paid',
+        title: 'Paid Loans',
+        icon: <CreditScoreIcon />,
+        route: '/orders/Paid', // Correct route for Paid Loans
+        component: <Payment />, // Rendering Payment component for Paid Loans
+      },
+    ],
+  },
+  {
+    segment: 'integrations',
+    title: 'Transaction History',
+    icon: <ReceiptLongIcon />,
+    route: '/integrations',
+    component: <Payment />, // Placeholder for Transaction History page
+  },
+
+    toast.custom((t) => (
+            <div
+              className={`${
+                t.visible ? 'animate-enter' : 'animate-leave'
+              } max-w-md w-full bg-white shadow-xl rounded-lg pointer-events-auto flex flex-col p-4`}
+            >
+              {/* First Layer */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                  Loan Amount:
+                </div>
+                <div className="text-sm text-gray-600">{loanAmount}</div>
+              </div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                  Interest Per Month:
+                </div>
+                <div className="text-sm text-gray-600">{(loanAmount * (loanInterest / 100)).toFixed(2)}</div>
+              </div>
+          
+              {/* Second Layer */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                  No. of Months:
+                </div>
+                <div className="text-sm text-gray-600">{noOfMonths}</div>
+              </div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                  Total Loan:
+                </div>
+                <div className="text-sm text-gray-600">{total}</div>
+              </div>
+          
+              {/* Third Layer */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                  Loan Date:
+                </div>
+                <div className="text-sm text-gray-600">{new Date(loanDate).toLocaleDateString()}</div>
+              </div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                  Loan Ref No.:
+                </div>
+                <div className="text-sm text-gray-600">{loanRefNo}</div>
+              </div>
+          
+              {/* Close Button */}
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-100 rounded-md hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          ));
+
+            React.useEffect(() => {
+    if (activeStep === 2) {
+      // Automatically reset after 3 seconds
+      setTimeout(() => {
+        handleReset();
+      }, 1500);
+    }
+  }, [activeStep]);
+
+  const express = require('express');
+const multer = require('multer');
+const mssql = require('mssql');
+const WebSocket = require('ws');
+const path = require('path');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+require('dotenv').config({ path: '../.env.development' }); // Load .env file
+const jwtDecode = require('jwt-decode');
+// Set up express app
+const app = express();
+const port = 5000;
+const wss = new WebSocket.Server({ port: 8080 });
+// Enable CORS
+app.use(cors()); // Allow all origins
+app.use(express.json());
+// Multer Storage Configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // Store files in 'uploads' folder
+  },
+  filename: (req, file, cb) => {
+    const { firstName, lastName } = req.body;
+    const fileExtension = path.extname(file.originalname);
+    cb(null, `${firstName}${lastName}(ValidID)${fileExtension}`);
+  }
+});
+
+const upload = multer({ storage });
+
+// MSSQL Configuration
+const sqlConfig = {
+  user: 'sa',
+  password: 'Eugene12042001',
+  server: 'LAPTOP-NI-POGI',
+  database: 'NEMPA',
+  options: {
+    instanceName: "SQLEXPRESS",
+    encrypt: false,
+    trustServerCertificate: true,
+  },
+  connectionTimeout: 15000,
+  requestTimeout: 15000,
+};
+
+// Create a connection pool once
+let pool;
+
+async function connectToDatabase() {
+  if (!pool) {
+    try {
+      pool = await mssql.connect(sqlConfig);
+      console.log('Connected to the database successfully');
+    } catch (err) {
+      console.error('Database connection failed:', err);
+      process.exit(1); // Exit if connection fails
+    }
+  }
+  return pool;
+}
+
+// 📌 Middleware to parse form-data and handle file upload
+app.post('/submit', upload.single('validId'), async (req, res) => {
+  const { lastName, firstName, middleName, birthday, contactNumber, address, dataRegistered } = req.body;
+  const validIdFileName = req.file ? req.file.filename : 'No file uploaded';
+
+  try {
+    const pool = await connectToDatabase();
+    const currentYear = new Date().getFullYear();
+
+    // Check if the client already exists based on fname, mname, and lname
+    const existingClient = await pool.request()
+      .input('firstName', mssql.NVarChar, firstName)
+      .input('middleName', mssql.NVarChar, middleName)
+      .input('lastName', mssql.NVarChar, lastName)
+      .query(`
+        SELECT TOP 1 client_id FROM client_info
+        WHERE fname = @firstName AND mname = @middleName AND lname = @lastName
+      `);
+
+    if (existingClient.recordset.length > 0) {
+      // Client already exists, generate JWT token with existing clientId
+      const clientId = existingClient.recordset[0].client_id;
+      const token = jwt.sign(
+        { clientId, firstName, lastName },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      return res.status(200).json({ message: 'Client already exists', clientId, token });
+    }
+
+    // Get the highest client_id for the current year
+    const result = await pool.request()
+      .input('currentYear', mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 client_id FROM client_info
+        WHERE client_id LIKE CONCAT(@currentYear, '%')
+        ORDER BY client_id DESC
+      `);
+
+    let clientId = `${currentYear}01`;
+
+    if (result.recordset.length > 0) {
+      const lastClientId = result.recordset[0].client_id;
+      const newIdNumber = parseInt(lastClientId.slice(-2), 10) + 1;
+      clientId = `${currentYear}${String(newIdNumber).padStart(2, '0')}`;
+    }
+
+    // Insert new client data if client does not exist
+    await pool.request()
+      .input('clientId', mssql.NVarChar, clientId)
+      .input('lastName', mssql.NVarChar, lastName)
+      .input('firstName', mssql.NVarChar, firstName)
+      .input('middleName', mssql.NVarChar, middleName)
+      .input('birthday', mssql.NVarChar, birthday)
+      .input('contactNumber', mssql.NVarChar, contactNumber)
+      .input('address', mssql.NVarChar, address)
+      .input('validIdFileName', mssql.NVarChar, validIdFileName)
+      .input('dataRegistered', mssql.NVarChar, dataRegistered)
+      .query(`
+        INSERT INTO client_info (client_id, lname, fname, mname, bday, cont_num, address, valid_id, reg_date)
+        VALUES (@clientId, @lastName, @firstName, @middleName, @birthday, @contactNumber, @address, @validIdFileName, @dataRegistered)
+      `);
+
+    // Generate JWT Token for new client
+    const token = jwt.sign(
+      { clientId, firstName, lastName },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.status(200).json({ message: 'Data inserted successfully!', clientId, token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error inserting data into the database.' });
+  }
+});
+
+
+
+// The route to handle loan submissions
+app.post('/submit-loan', async (req, res) => {
+  // Destructure the required data from the request body
+  const { clientId, loanAmount, loanInterest, noOfMonths, loanDate, total, biWeeklyAmortization } = req.body;
+
+  try {
+    // Log the request body to check if loanAmount has a value
+    console.log('Request Body:', req.body);
+    
+    const pool = await mssql.connect(sqlConfig);
+
+    // Generate loan reference number (loanRefNo) with the current year and incrementing number
+    const currentYear = new Date().getFullYear();
+    const result = await pool.request()
+      .input('currentYear', mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 LoanRefNo
+        FROM Loans
+        WHERE LoanRefNo LIKE '${currentYear}%'
+        ORDER BY LoanRefNo DESC
+      `);
+
+    let loanRefNo = `${currentYear}0001`;  // Default to the first loan of the year
+
+    if (result.recordset.length > 0) {
+      const lastLoanRefNo = result.recordset[0].LoanRefNo; // Ensure correct column name (case-sensitive)
+      
+      if (lastLoanRefNo) {
+        const newRefNo = parseInt(lastLoanRefNo.slice(-4)) + 1;
+        loanRefNo = `${currentYear}${String(newRefNo).padStart(4, '0')}`;
+      } else {
+        console.error('No valid loanRefNo found');
+        loanRefNo = `${currentYear}0001`; // Reset if the reference number is invalid
+      }
+    }
+    const noOfTerms =  noOfMonths *2;
+    const status = 'Waiting for Approval';
+    const notReleased = 'No';
+    // Insert the loan data into the loan table
+    const resultInsert = await pool.request()
+      .input('clientId', mssql.NVarChar, clientId)
+      .input('loanRefNo', mssql.NVarChar, loanRefNo)
+      .input('loanAmount', mssql.Float, loanAmount)
+      .input('loanInterest', mssql.Int, loanInterest)
+      .input('noOfMonths', mssql.Int, noOfMonths)
+      .input('loanDate', mssql.Date, loanDate)  // Insert the loan date
+      .input('total', mssql.Float, total)
+      .input('biWeeklyAmortization', mssql.Float, biWeeklyAmortization)
+      .input('noOfTerms',mssql.Int, noOfTerms)
+      .input('onGoing', mssql.NVarChar, status)
+      .input('notReleased', mssql.NVarChar, notReleased)
+      .query(`
+        INSERT INTO Loans (LoanRefNo, client_id, LoanAmount, interest, noOfMonths, LoanDate, TotalAmount,biWeeklyPay,running_balance,no_of_terms,status,isReleased)
+        VALUES (@loanRefNo, @clientId, @loanAmount, @loanInterest, @noOfMonths, @loanDate, @total, @biWeeklyAmortization, @total, @noOfTerms,@onGoing,@notReleased)
+      `);
+
+    // Return response with the token
+    res.status(200).json({
+      message: 'Loan data inserted successfully!',loanRefNo});
+  } catch (err) {
+    console.error('Error inserting loan data:', err);
+    res.status(500).json({ message: 'Error inserting loan data.' });
+  }
+});
+
+
+
+
+app.get('/loanData', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1]; // Assuming Bearer token format
+  if (!token) {
+    return res.status(400).send('Token missing');
+  }
+
+  const decodedToken = jwtDecode(token);
+  const { loanRefNo, clientId } = decodedToken;
+  const status = 'On Going';
+  try {
+    const pool = await mssql.connect(sqlConfig); // Ensure that sqlConfig is defined and correct
+    const result = await pool.request() // Corrected query using pool.request()
+      .input('loanRefNo', mssql.NVarChar, loanRefNo) // Use parameterized queries for security
+      .input('clientId', mssql.NVarChar, clientId)
+      .input('onGoing', mssql.NVarChar, status)
+      .query(`
+        SELECT LoanRefNo, client_id, LoanAmount, TotalAmount, noOfMonths, LoanDate, interest, biWeeklyPay,running_balance 
+        FROM Loans 
+        WHERE LoanRefNo = @loanRefNo AND client_id = @clientId AND status = @onGoing
+      `);
+
+    if (result.recordset.length > 0) {
+      res.json(result.recordset[0]); // Send loan data back
+    } else {
+      res.status(404).send('Loan not found');
+    }
+  } catch (error) {
+    console.error('Database query error', error);
+    res.status(500).send('Internal server error');
+  }
+});
+
+
+// Insert payment and update loan balance
+app.post('/make-payment', async (req, res) => {
+  const { loanRefNo, paymentDate, payment } = req.body;
+
+  try {
+    const pool = await mssql.connect(sqlConfig);
+
+    // Get the current year
+    const currentYear = new Date().getFullYear();
+
+    // Query the latest PaymentID for the current year to get the last series number
+    const result = await pool.request()
+      .input('currentYear', mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 PaymentID
+        FROM Payments
+        WHERE PaymentID LIKE '${currentYear}%'
+        ORDER BY PaymentID DESC
+      `);
+
+    // Generate the next series number
+    let nextSeries = 1;
+    if (result.recordset.length > 0) {
+      const lastPaymentID = result.recordset[0].PaymentID;
+      nextSeries = parseInt(lastPaymentID.slice(-6)) + 1;
+    }
+
+    const nextPaymentID = `${currentYear}${String(nextSeries).padStart(6, '0')}`;
+
+    // Insert payment into Payments table
+    await pool.request()
+      .input('PaymentID', mssql.NVarChar, nextPaymentID)
+      .input('LoanRefNo', mssql.Int, loanRefNo)
+      .input('PaymentAmount', mssql.Decimal(18, 2), payment)
+      .input('PaymentDate', mssql.DateTime, paymentDate)
+      .query(`
+        INSERT INTO Payments (PaymentID, LoanRefNo, PaymentAmount, PaymentDate)
+        VALUES (@PaymentID, @LoanRefNo, @PaymentAmount, @PaymentDate)
+      `);
+
+    // Update the loan balance by reducing it with the payment amount
+    await pool.request()
+      .input('LoanRefNo', mssql.Int, loanRefNo)
+      .input('PaymentAmount', mssql.Decimal(18, 2), payment)
+      .query(`
+        UPDATE Loans
+        SET running_balance = running_balance - @PaymentAmount
+        WHERE LoanRefNo = @LoanRefNo
+      `);
+
+    // Get the updated loan information to return
+    const updatedLoan = await pool.request()
+      .input('LoanRefNo', mssql.Int, loanRefNo)
+      .query(`
+        SELECT running_balance, TotalAmount, biWeeklyPay
+        FROM Loans
+        WHERE LoanRefNo = @LoanRefNo
+      `);
+
+    const updatedData = updatedLoan.recordset[0];
+    if (updatedData.running_balance <= 0) {
+      await pool.request()
+        .input('fullyPaid', mssql.NVarChar, 'Fully Paid')
+        .input('LoanRefNo', mssql.Int, loanRefNo)
+        .query(`
+          UPDATE Loans
+          SET status = @fullyPaid
+          WHERE LoanRefNo = @LoanRefNo
+        `);
+    }
+    res.status(200).json({
+      updatedLoanAmount: updatedData.running_balance,
+      updatedTotalAmount: updatedData.TotalAmount,
+      updatedbiWeeklyAmount: updatedData.biWeeklyPay,
+      message: 'Payment recorded and loan balance updated successfully.'
+    });
+
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    res.status(500).json({ message: 'Error processing payment.' });
+  }
+});
+
+
+app.get('/PendingLoans', async (req, res) => {
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const result = await pool.request()
+      .query(`
+        SELECT l.LoanRefNo, l.LoanDate, l.LoanAmount, l.status, c.fname, c.lname
+        FROM Loans l
+        JOIN client_info c ON l.client_id = c.client_id
+        WHERE l.status IN ('Waiting for Approval', 'Approved')
+      `);
+
+    const loans = result.recordset.map(row => ({
+      id: row.LoanRefNo, // Use LoanRefNo as the id
+      date: row.LoanDate,
+      status: row.status,
+      amount: row.LoanAmount,
+      customer: {
+        name: `${row.fname} ${row.lname}`,
+      }
+    }));
+
+    res.json(loans); // Send the loans data back as JSON
+  } catch (err) {
+    console.error('Database query failed', err);
+    res.status(500).send('Error retrieving data from database');
+  }
+});
+
+app.post('/submitLoanApprovals', async (req, res) => {
+  const { loanId, approvedDate, approvers } = req.body; // approvers is an array
+
+  if (!Array.isArray(approvers) || approvers.length === 0) {
+    return res.status(400).json({ success: false, message: "Approvers list is empty or invalid." });
+  }
+
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const currentYear = new Date().getFullYear();
+
+    // Query the latest approved_id for the current year
+    const result = await pool.request()
+      .input('currentYear', mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 approved_id
+        FROM approvers
+        WHERE approved_id LIKE '${currentYear}%'
+        ORDER BY approved_id DESC
+      `);
+
+    // Determine the next series number
+    let nextSeries = 1;
+    if (result.recordset.length > 0) {
+      const lastApprovedID = result.recordset[0].approved_id; // Correct column reference
+      nextSeries = parseInt(lastApprovedID.slice(-6)) + 1;
+    }
+
+    // Insert each approver as a new row
+    for (let i = 0; i < approvers.length; i++) {
+      const nextApproverID = `${currentYear}${String(nextSeries + i).padStart(6, '0')}`;
+
+      await pool.request()
+        .input('ApprovedId', mssql.NVarChar, nextApproverID)
+        .input('LoanRefNo', mssql.Int, loanId)
+        .input('Date', mssql.Date, approvedDate)
+        .input('Approver', mssql.NVarChar, approvers[i]) // Insert individual approver
+        .query(`
+          INSERT INTO approvers (approved_id, LoanRefNo, approvedDate, approver_name)
+          VALUES (@ApprovedId, @LoanRefNo, @Date, @Approver)
+        `);
+    }
+
+    // Update the status of the loan to "Approved"
+    await pool.request()
+      .input('LoanRefNo', mssql.Int, loanId)
+      .query(`
+        UPDATE Loans
+        SET status = 'Approved'
+        WHERE LoanRefNo = @LoanRefNo
+      `);
+
+    res.status(200).json({ success: true, message: 'Loan approval submitted successfully.' });
+
+  } catch (error) {
+    console.error('Error processing loan approval:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error.' });
+  }
+});
+
+app.get('/fetchApprovers/:loanId', async (req, res) => {
+  const loanId = req.params.loanId;  // Get loanId from URL params
+
+  try {
+    // Query the database for approvers related to the loanId
+    const pool = await mssql.connect(sqlConfig);
+    const result = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId) // Assuming loanId is an integer
+      .query('SELECT approver_name FROM approvers WHERE LoanRefNo = @loanId');  // Your query to fetch approvers
+
+    if (result.recordset.length > 0) {
+      // If approvers are found, send them as the response
+      res.json({
+        success: true,
+        approvers: result.recordset.map(row => ({
+          name: row.approver_name,  // Assuming the column in the database is `approver_name`
+        })),
+      });
+    }
+  } catch (err) {
+    console.error('Error fetching approvers:', err);
+    res.status(500).json({ success: false, message: 'Error fetching approvers' });
+  }
+});
+
+app.get('/pendingCount', async (req, res) => {
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const result = await pool.request().query("SELECT COUNT(*) as count FROM Loans WHERE status = 'Waiting for Approval'");
+    res.json({ count: result.recordset[0].count });
+  } catch (error) {
+    console.error('Error fetching pending loans:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+const clients = new Set();
+wss.on('connection', (ws) => {
+  console.log('New client connected');
+  clients.add(ws);
+
+  // Function to send counts to all connected clients
+  const sendLoanCounts = async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+      const result = await pool.request().query(`
+        SELECT 
+          (SELECT COUNT(*) FROM Loans WHERE status = 'Waiting for Approval') AS pendingCount,
+          (SELECT COUNT(*) FROM Loans WHERE status = 'Released') AS releasedCount
+      `);
+      
+      const counts = {
+        type: 'loanCounts',
+        pendingCount: result.recordset[0].pendingCount,
+        releasedCount: result.recordset[0].releasedCount
+      };
+
+      // Broadcast to all connected clients
+      clients.forEach(client => {
+        if (client.readyState === client.OPEN) {
+          client.send(JSON.stringify(counts));
+        }
+      });
+
+    } catch (error) {
+      console.error('Error fetching loan counts:', error);
+    }
+  };
+
+  // Send initial data immediately when the client connects
+  sendLoanCounts();
+
+  // Set up an interval to update all clients every 10 seconds
+  const intervalId = setInterval(sendLoanCounts, 10000);
+
+  // Clean up when the client disconnects
+  ws.on('close', () => {
+    console.log('Client disconnected');
+    clients.delete(ws);
+    if (clients.size === 0) {
+      clearInterval(intervalId); // Stop the interval if no clients are connected
+    }
+  });
+});
+
+app.post('/releaseLoan', async (req, res) => {
+  const { loanId, releasedBy, releasedDate , PaymentStartAt} = req.body;
+
+  try {
+    const pool = await mssql.connect(sqlConfig);
+
+    console.log('releasedBy:', releasedBy);
+    // Update the loan status to Released and set other fields
+    const result = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .input('releasedBy', mssql.NVarChar, releasedBy) 
+      .input('releasedDate', mssql.Date, releasedDate)
+      .input('PaymentStartAt', mssql.Date, PaymentStartAt)
+      .query(`
+        UPDATE Loans
+        SET isReleased = 'Yes', status = 'Released', releasedBy = @releasedBy, releasedWhen = @releasedDate, PaymentStartAt = @PaymentStartAt
+        WHERE LoanRefNo = @loanId
+      `);
+
+    res.status(200).json({ message: 'Loan Released successfully!' });
+
+  } catch (err) {
+    console.error('Error releasing loan:', err);
+    res.status(500).json({ message: 'Error releasing loan.' });
+  }
+});
+
+// Start the server
+app.listen(port, async () => {
+  await connectToDatabase(); // Ensure database is connected before accepting requests
+  console.log(`Server running on port ${port}`);
+});
+
+
+
+const express = require('express');
+const multer = require('multer');
+const mssql = require('mssql');
+const WebSocket = require('ws');
+const path = require('path');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+require('dotenv').config({ path: '../.env.development' }); // Load .env file
+const jwtDecode = require('jwt-decode');
+// Set up express app
+const app = express();
+const port = 5000;
+const wss = new WebSocket.Server({ port: 8080 });
+// Enable CORS
+app.use(cors()); // Allow all origins
+app.use(express.json());
+// Multer Storage Configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // Store files in 'uploads' folder
+  },
+  filename: (req, file, cb) => {
+    const { firstName, lastName } = req.body;
+    const fileExtension = path.extname(file.originalname);
+    cb(null, `${firstName}${lastName}(ValidID)${fileExtension}`);
+  }
+});
+
+const upload = multer({ storage });
+
+// MSSQL Configuration
+const sqlConfig = {
+  user: 'sa',
+  password: 'Eugene12042001',
+  server: 'LAPTOP-NI-POGI',
+  database: 'NEMPA',
+  options: {
+    instanceName: "SQLEXPRESS",
+    encrypt: false,
+    trustServerCertificate: true,
+  },
+  connectionTimeout: 15000,
+  requestTimeout: 15000,
+};
+
+// Create a connection pool once
+let pool;
+
+async function connectToDatabase() {
+  if (!pool) {
+    try {
+      pool = await mssql.connect(sqlConfig);
+      console.log('Connected to the database successfully');
+    } catch (err) {
+      console.error('Database connection failed:', err);
+      process.exit(1); // Exit if connection fails
+    }
+  }
+  return pool;
+}
+
+// 📌 Middleware to parse form-data and handle file upload
+app.post('/submit', upload.single('validId'), async (req, res) => {
+  const { lastName, firstName, middleName, birthday, contactNumber, address, dataRegistered } = req.body;
+  const validIdFileName = req.file ? req.file.filename : 'No file uploaded';
+
+  try {
+    const pool = await connectToDatabase();
+    const currentYear = new Date().getFullYear();
+
+    // Check if the client already exists based on fname, mname, and lname
+    const existingClient = await pool.request()
+      .input('firstName', mssql.NVarChar, firstName)
+      .input('middleName', mssql.NVarChar, middleName)
+      .input('lastName', mssql.NVarChar, lastName)
+      .query(`
+        SELECT TOP 1 client_id FROM client_info
+        WHERE fname = @firstName AND mname = @middleName AND lname = @lastName
+      `);
+
+    if (existingClient.recordset.length > 0) {
+      // Client already exists, generate JWT token with existing clientId
+      const clientId = existingClient.recordset[0].client_id;
+      const token = jwt.sign(
+        { clientId, firstName, lastName },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      return res.status(200).json({ message: 'Client already exists', clientId, token });
+    }
+
+    // Get the highest client_id for the current year
+    const result = await pool.request()
+      .input('currentYear', mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 client_id FROM client_info
+        WHERE client_id LIKE CONCAT(@currentYear, '%')
+        ORDER BY client_id DESC
+      `);
+
+    let clientId = `${currentYear}01`;
+
+    if (result.recordset.length > 0) {
+      const lastClientId = result.recordset[0].client_id;
+      const newIdNumber = parseInt(lastClientId.slice(-2), 10) + 1;
+      clientId = `${currentYear}${String(newIdNumber).padStart(2, '0')}`;
+    }
+
+    // Insert new client data if client does not exist
+    await pool.request()
+      .input('clientId', mssql.NVarChar, clientId)
+      .input('lastName', mssql.NVarChar, lastName)
+      .input('firstName', mssql.NVarChar, firstName)
+      .input('middleName', mssql.NVarChar, middleName)
+      .input('birthday', mssql.NVarChar, birthday)
+      .input('contactNumber', mssql.NVarChar, contactNumber)
+      .input('address', mssql.NVarChar, address)
+      .input('validIdFileName', mssql.NVarChar, validIdFileName)
+      .input('dataRegistered', mssql.NVarChar, dataRegistered)
+      .query(`
+        INSERT INTO client_info (client_id, lname, fname, mname, bday, cont_num, address, valid_id, reg_date)
+        VALUES (@clientId, @lastName, @firstName, @middleName, @birthday, @contactNumber, @address, @validIdFileName, @dataRegistered)
+      `);
+
+    // Generate JWT Token for new client
+    const token = jwt.sign(
+      { clientId, firstName, lastName },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.status(200).json({ message: 'Data inserted successfully!', clientId, token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error inserting data into the database.' });
+  }
+});
+
+
+
+// The route to handle loan submissions
+app.post('/submit-loan', async (req, res) => {
+  // Destructure the required data from the request body
+  const { clientId, loanAmount, loanInterest, noOfMonths, loanDate, total, biWeeklyAmortization } = req.body;
+
+  try {
+    // Log the request body to check if loanAmount has a value
+    console.log('Request Body:', req.body);
+    
+    const pool = await mssql.connect(sqlConfig);
+
+    // Generate loan reference number (loanRefNo) with the current year and incrementing number
+    const currentYear = new Date().getFullYear();
+    const result = await pool.request()
+      .input('currentYear', mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 LoanRefNo
+        FROM Loans
+        WHERE LoanRefNo LIKE '${currentYear}%'
+        ORDER BY LoanRefNo DESC
+      `);
+
+    let loanRefNo = `${currentYear}0001`;  // Default to the first loan of the year
+
+    if (result.recordset.length > 0) {
+      const lastLoanRefNo = result.recordset[0].LoanRefNo; // Ensure correct column name (case-sensitive)
+      
+      if (lastLoanRefNo) {
+        const newRefNo = parseInt(lastLoanRefNo.slice(-4)) + 1;
+        loanRefNo = `${currentYear}${String(newRefNo).padStart(4, '0')}`;
+      } else {
+        console.error('No valid loanRefNo found');
+        loanRefNo = `${currentYear}0001`; // Reset if the reference number is invalid
+      }
+    }
+    const noOfTerms =  noOfMonths *2;
+    const status = 'Waiting for Approval';
+    const notReleased = 'No';
+    // Insert the loan data into the loan table
+    const resultInsert = await pool.request()
+      .input('clientId', mssql.NVarChar, clientId)
+      .input('loanRefNo', mssql.NVarChar, loanRefNo)
+      .input('loanAmount', mssql.Float, loanAmount)
+      .input('loanInterest', mssql.Int, loanInterest)
+      .input('noOfMonths', mssql.Int, noOfMonths)
+      .input('loanDate', mssql.Date, loanDate)  // Insert the loan date
+      .input('total', mssql.Float, total)
+      .input('biWeeklyAmortization', mssql.Float, biWeeklyAmortization)
+      .input('noOfTerms',mssql.Int, noOfTerms)
+      .input('onGoing', mssql.NVarChar, status)
+      .input('notReleased', mssql.NVarChar, notReleased)
+      .query(`
+        INSERT INTO Loans (LoanRefNo, client_id, LoanAmount, interest, noOfMonths, LoanDate, TotalAmount,biWeeklyPay,running_balance,no_of_terms,status,isReleased)
+        VALUES (@loanRefNo, @clientId, @loanAmount, @loanInterest, @noOfMonths, @loanDate, @total, @biWeeklyAmortization, @total, @noOfTerms,@onGoing,@notReleased)
+      `);
+
+    // Return response with the token
+    res.status(200).json({
+      message: 'Loan data inserted successfully!',loanRefNo});
+  } catch (err) {
+    console.error('Error inserting loan data:', err);
+    res.status(500).json({ message: 'Error inserting loan data.' });
+  }
+});
+
+
+
+
+app.get('/loanData', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1]; // Assuming Bearer token format
+  if (!token) {
+    return res.status(400).send('Token missing');
+  }
+
+  const decodedToken = jwtDecode(token);
+  const { loanRefNo, clientId } = decodedToken;
+  const status = 'On Going';
+  try {
+    const pool = await mssql.connect(sqlConfig); // Ensure that sqlConfig is defined and correct
+    const result = await pool.request() // Corrected query using pool.request()
+      .input('loanRefNo', mssql.NVarChar, loanRefNo) // Use parameterized queries for security
+      .input('clientId', mssql.NVarChar, clientId)
+      .input('onGoing', mssql.NVarChar, status)
+      .query(`
+        SELECT LoanRefNo, client_id, LoanAmount, TotalAmount, noOfMonths, LoanDate, interest, biWeeklyPay,running_balance 
+        FROM Loans 
+        WHERE LoanRefNo = @loanRefNo AND client_id = @clientId AND status = @onGoing
+      `);
+
+    if (result.recordset.length > 0) {
+      res.json(result.recordset[0]); // Send loan data back
+    } else {
+      res.status(404).send('Loan not found');
+    }
+  } catch (error) {
+    console.error('Database query error', error);
+    res.status(500).send('Internal server error');
+  }
+});
+
+
+// Insert payment and update loan balance
+app.post('/make-payment', async (req, res) => {
+  const { loanRefNo, paymentDate, payment } = req.body;
+
+  try {
+    const pool = await mssql.connect(sqlConfig);
+
+    // Get the current year
+    const currentYear = new Date().getFullYear();
+
+    // Query the latest PaymentID for the current year to get the last series number
+    const result = await pool.request()
+      .input('currentYear', mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 PaymentID
+        FROM Payments
+        WHERE PaymentID LIKE '${currentYear}%'
+        ORDER BY PaymentID DESC
+      `);
+
+    // Generate the next series number
+    let nextSeries = 1;
+    if (result.recordset.length > 0) {
+      const lastPaymentID = result.recordset[0].PaymentID;
+      nextSeries = parseInt(lastPaymentID.slice(-6)) + 1;
+    }
+
+    const nextPaymentID = `${currentYear}${String(nextSeries).padStart(6, '0')}`;
+
+    // Insert payment into Payments table
+    await pool.request()
+      .input('PaymentID', mssql.NVarChar, nextPaymentID)
+      .input('LoanRefNo', mssql.Int, loanRefNo)
+      .input('PaymentAmount', mssql.Decimal(18, 2), payment)
+      .input('PaymentDate', mssql.DateTime, paymentDate)
+      .query(`
+        INSERT INTO Payments (PaymentID, LoanRefNo, PaymentAmount, PaymentDate)
+        VALUES (@PaymentID, @LoanRefNo, @PaymentAmount, @PaymentDate)
+      `);
+
+    // Update the loan balance by reducing it with the payment amount
+    await pool.request()
+      .input('LoanRefNo', mssql.Int, loanRefNo)
+      .input('PaymentAmount', mssql.Decimal(18, 2), payment)
+      .query(`
+        UPDATE Loans
+        SET running_balance = running_balance - @PaymentAmount
+        WHERE LoanRefNo = @LoanRefNo
+      `);
+
+    // Get the updated loan information to return
+    const updatedLoan = await pool.request()
+      .input('LoanRefNo', mssql.Int, loanRefNo)
+      .query(`
+        SELECT running_balance, TotalAmount, biWeeklyPay
+        FROM Loans
+        WHERE LoanRefNo = @LoanRefNo
+      `);
+
+    const updatedData = updatedLoan.recordset[0];
+    if (updatedData.running_balance <= 0) {
+      await pool.request()
+        .input('fullyPaid', mssql.NVarChar, 'Fully Paid')
+        .input('LoanRefNo', mssql.Int, loanRefNo)
+        .query(`
+          UPDATE Loans
+          SET status = @fullyPaid
+          WHERE LoanRefNo = @LoanRefNo
+        `);
+    }
+    res.status(200).json({
+      updatedLoanAmount: updatedData.running_balance,
+      updatedTotalAmount: updatedData.TotalAmount,
+      updatedbiWeeklyAmount: updatedData.biWeeklyPay,
+      message: 'Payment recorded and loan balance updated successfully.'
+    });
+
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    res.status(500).json({ message: 'Error processing payment.' });
+  }
+});
+
+
+app.get('/PendingLoans', async (req, res) => {
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const result = await pool.request()
+      .query(`
+        SELECT l.LoanRefNo, l.LoanDate, l.LoanAmount, l.status, c.fname, c.lname
+        FROM Loans l
+        JOIN client_info c ON l.client_id = c.client_id
+        WHERE l.status IN ('Waiting for Approval', 'Approved')
+      `);
+
+    const loans = result.recordset.map(row => ({
+      id: row.LoanRefNo, // Use LoanRefNo as the id
+      date: row.LoanDate,
+      status: row.status,
+      amount: row.LoanAmount,
+      customer: {
+        name: `${row.fname} ${row.lname}`,
+      }
+    }));
+
+    res.json(loans); // Send the loans data back as JSON
+  } catch (err) {
+    console.error('Database query failed', err);
+    res.status(500).send('Error retrieving data from database');
+  }
+});
+
+app.post('/submitLoanApprovals', async (req, res) => {
+  const { loanId, approvedDate, approvers } = req.body; // approvers is an array
+
+  if (!Array.isArray(approvers) || approvers.length === 0) {
+    return res.status(400).json({ success: false, message: "Approvers list is empty or invalid." });
+  }
+
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const currentYear = new Date().getFullYear();
+
+    // Query the latest approved_id for the current year
+    const result = await pool.request()
+      .input('currentYear', mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 approved_id
+        FROM approvers
+        WHERE approved_id LIKE '${currentYear}%'
+        ORDER BY approved_id DESC
+      `);
+
+    // Determine the next series number
+    let nextSeries = 1;
+    if (result.recordset.length > 0) {
+      const lastApprovedID = result.recordset[0].approved_id; // Correct column reference
+      nextSeries = parseInt(lastApprovedID.slice(-6)) + 1;
+    }
+
+    // Insert each approver as a new row
+    for (let i = 0; i < approvers.length; i++) {
+      const nextApproverID = `${currentYear}${String(nextSeries + i).padStart(6, '0')}`;
+
+      await pool.request()
+        .input('ApprovedId', mssql.NVarChar, nextApproverID)
+        .input('LoanRefNo', mssql.Int, loanId)
+        .input('Date', mssql.Date, approvedDate)
+        .input('Approver', mssql.NVarChar, approvers[i]) // Insert individual approver
+        .query(`
+          INSERT INTO approvers (approved_id, LoanRefNo, approvedDate, approver_name)
+          VALUES (@ApprovedId, @LoanRefNo, @Date, @Approver)
+        `);
+    }
+
+    // Update the status of the loan to "Approved"
+    await pool.request()
+      .input('LoanRefNo', mssql.Int, loanId)
+      .query(`
+        UPDATE Loans
+        SET status = 'Approved'
+        WHERE LoanRefNo = @LoanRefNo
+      `);
+
+    res.status(200).json({ success: true, message: 'Loan approval submitted successfully.' });
+
+  } catch (error) {
+    console.error('Error processing loan approval:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error.' });
+  }
+});
+
+app.get('/fetchApprovers/:loanId', async (req, res) => {
+  const loanId = req.params.loanId;  // Get loanId from URL params
+
+  try {
+    // Query the database for approvers related to the loanId
+    const pool = await mssql.connect(sqlConfig);
+    const result = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId) // Assuming loanId is an integer
+      .query('SELECT approver_name FROM approvers WHERE LoanRefNo = @loanId');  // Your query to fetch approvers
+
+    if (result.recordset.length > 0) {
+      // If approvers are found, send them as the response
+      res.json({
+        success: true,
+        approvers: result.recordset.map(row => ({
+          name: row.approver_name,  // Assuming the column in the database is `approver_name`
+        })),
+      });
+    }
+  } catch (err) {
+    console.error('Error fetching approvers:', err);
+    res.status(500).json({ success: false, message: 'Error fetching approvers' });
+  }
+});
+
+wss.on('connection', (ws) => {
+  console.log('New client connected');
+
+  // Send initial pending count
+  const sendPendingCount = async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+      const result = await pool.request().query("SELECT COUNT(*) as count FROM Loans WHERE status = 'Waiting for Approval'");
+      ws.send(JSON.stringify({ type: 'pendingCount', count: result.recordset[0].count }));
+    } catch (error) {
+      console.error('Error fetching pending loans count:', error);
+    }
+  };
+
+  sendPendingCount();  // Send initial data when the client connects
+
+  // Simulate the pending loans count update every 10 seconds
+  setInterval(async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+      const result = await pool.request().query("SELECT COUNT(*) as count FROM Loans WHERE status = 'Waiting for Approval'");
+      const pendingCount = result.recordset[0].count;
+
+      // Send the updated count to the client
+      ws.send(JSON.stringify({ type: 'pendingCount', count: pendingCount }));
+    } catch (error) {
+      console.error('Error fetching pending loans count:', error);
+    }
+  }, 10000);  // Update every 10 seconds
+
+  // Clean up when the client disconnects
+  ws.on('close', () => {
+    console.log('Client disconnected');
+  });
+});
+
+wss.on('connection', (ws) => {
+  console.log('New client connected');
+
+  // Send initial pending count
+  const sendPendingCount = async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+      const result = await pool.request().query("SELECT COUNT(*) as count FROM Loans WHERE status = 'Released'");
+      ws.send(JSON.stringify({ type: 'pendingCount', count: result.recordset[0].count }));
+    } catch (error) {
+      console.error('Error fetching pending loans count:', error);
+    }
+  };
+
+  sendPendingCount();  // Send initial data when the client connects
+
+  // Simulate the pending loans count update every 10 seconds
+  setInterval(async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+      const result = await pool.request().query("SELECT COUNT(*) as count FROM Loans WHERE status = 'Released'");
+      const releasedCount = result.recordset[0].count;
+
+      // Send the updated count to the client
+      ws.send(JSON.stringify({ type: 'releasedCount', count: releasedCount }));
+    } catch (error) {
+      console.error('Error fetching pending loans count:', error);
+    }
+  }, 10000);  // Update every 10 seconds
+
+  // Clean up when the client disconnects
+  ws.on('close', () => {
+    console.log('Client disconnected');
+  });
+});
+
+app.post('/releaseLoan', async (req, res) => {
+  const { loanId, releasedBy, releasedDate, PaymentStartAt } = req.body;
+
+  try {
+    const pool = await mssql.connect(sqlConfig);
+
+    console.log('releasedBy:', releasedBy);
+    // Update the loan status to Released and set other fields
+    const result = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .input('releasedBy', mssql.NVarChar, releasedBy) 
+      .input('releasedDate', mssql.Date, releasedDate)
+      .input('PaymentStartAt', mssql.Date, PaymentStartAt)
+      .query(`
+        UPDATE Loans
+        SET isReleased = 'Yes', status = 'Released', releasedBy = @releasedBy, releasedWhen = @releasedDate, PaymentStartAt = @PaymentStartAt
+        WHERE LoanRefNo = @loanId
+      `);
+
+    res.status(200).json({ message: 'Loan Released successfully!' });
+
+  } catch (err) {
+    console.error('Error releasing loan:', err);
+    res.status(500).json({ message: 'Error releasing loan.' });
+  }
+});
+
+app.get('/OnGoingLoans', async (req, res) => {
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const result = await pool.request()
+      .query(`
+        SELECT l.LoanRefNo, l.biWeeklyPay, l.running_balance, l.PaymentStartAt, l.status, c.fname, c.lname
+        FROM Loans l
+        JOIN client_info c ON l.client_id = c.client_id
+        WHERE l.status = 'Released'
+      `);
+
+    const loans = result.recordset.map(row => ({
+      id: row.LoanRefNo, // Use LoanRefNo as the id
+      dueDate: row.PaymentStartAt,
+      biWeeklyPay: row.biWeeklyPay,
+      amount: row.running_balance,
+      status: row.status,
+      customer: {
+        name: `${row.fname} ${row.lname}`,
+      }
+    }));
+
+    res.json(loans); // Send the loans data back as JSON
+  } catch (err) {
+    console.error('Database query failed', err);
+    res.status(500).send('Error retrieving data from database');
+  }
+});
+
+// Start the server
+app.listen(port, async () => {
+  await connectToDatabase(); // Ensure database is connected before accepting requests
+  console.log(`Server running on port ${port}`);
+});
