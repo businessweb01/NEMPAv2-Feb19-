@@ -123,7 +123,7 @@ export default function SignUp({setToastActive}) {
                 });
 
                 const result = await response.json();
-
+                // ✅ Ensure `@token` exists in localStorage
                 if (result.token) {
                   localStorage.setItem('jwtToken', result.token);
                   toast.success('Client Information Inserted Successfully', {
