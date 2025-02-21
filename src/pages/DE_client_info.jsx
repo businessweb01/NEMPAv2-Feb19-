@@ -179,7 +179,7 @@ export default function SignUp({setToastActive}) {
           <Box
             component="form"
             onSubmit={handleSubmit}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2, justifyContent:"center" }}
           >
             <Grid container spacing={2}>
               {/* 1st Row: Last Name | First Name | Middle Name */}

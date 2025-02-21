@@ -15,32 +15,22 @@ import Stack from '@mui/joy/Stack';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Divider from '@mui/joy/Divider';
-import HowToRegIcon from '@mui/icons-material/HowToReg';
-import List from '@mui/joy/List';
-import ListItem from '@mui/joy/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import Switch from '@mui/joy/Switch';
 import { FaCalculator } from "react-icons/fa6";
-import { Construction } from '@mui/icons-material';
-
+import { TbCalendarDue } from "react-icons/tb";
 export default function OrderTable() {
   const [loans, setLoans] = React.useState([]);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const [openReleaseModal, setOpenReleaseModal] = React.useState(false);
   const [currentLoanId, setCurrentLoanId] = React.useState(null); 
-  const [loanAmount, setLoanAmount] = React.useState(null);
-  const [clientName, setClientName] = React.useState(null);
-  const [PaymentStartAt, setPaymentStartAt] = useState('');
   const [runningBalance, setRunningBalance] = useState('0');
   const [biWeeklyPay, setBiWeeklyPay] = useState('0'); 
   const [customAmount, setCustomAmount] = useState('0');
   const [isBiWeekly, setIsBiWeekly] = useState(true); 
   const [isCustom, setIsCustom] = useState(false);
-  const [recomputeAmount, setRecomputeAmount] = useState('0');
   const [recomputeDate, setRecomputeDate] = useState('');
-  const [recomputeInterest, setRecomputeInterest] = useState('0');
   const [startOfPayment, setStartOfPayment] = useState('');
   const[recomputedAmount, setRecomputedAmount] = useState('0');
   const[loanValue, setLoanValue] = useState('0');
@@ -48,6 +38,10 @@ export default function OrderTable() {
   const [interestRate, setInterestRate] = useState('0');
   const [runningBalanceRecompute, setRunningBalanceRecompute] = useState('0');
   const [openRecomputeModal, setOpenRecomputeModal] = useState(false);
+  const [recomputeInterestValue, setRecomputeInterestValue] = useState('0');
+  const [oldTotalInterest, setOldTotalInterest] = useState('0');
+  const [BalanceRecompute, setBalanceRecompute] = useState('0');
+  const [rebateAmount, setRebateAmount] = useState('0');
   // Fetch Pending Loans
   const fetchLoans = useCallback(async () => {
     try {
@@ -210,6 +204,7 @@ export default function OrderTable() {
       setTotalAmount(data.TotalAmount);
       setInterestRate(data.Interest);
       setRunningBalanceRecompute(data.running_balance);
+      setBalanceRecompute(data.running_balance);
       const monthsPassed = calculateMonthsDifference(data.releasedWhen);
       let months;
       if(monthsPassed === 0){
@@ -218,6 +213,8 @@ export default function OrderTable() {
         months = monthsPassed;
       }
       setRecomputeDate(months);
+      const OldInterest = data.TotalAmount - data.LoanAmount;
+      setOldTotalInterest(OldInterest);
     }catch(error){
       console.error("Error recomputing:", error);
       toast.error("An error occurred while recomputing.", { autoClose: 2000, containerId: 'main-toast' });
@@ -239,11 +236,25 @@ export default function OrderTable() {
     let loanAmountWithInterest = loanValue + TotalInterest; //Calculate the Loan Amount with Interest
     let recomputedAmount =  totalAmount - runningBalanceRecompute; //Calculate the total paid amount
     let newRecomputedAmount =loanAmountWithInterest- recomputedAmount; //Calculate the remaining amount to be paid
+    let rebateAmount = totalAmount - loanAmountWithInterest; //Calculate the rebate amount
     console.log(InterestValue, TotalInterest, loanAmountWithInterest, recomputedAmount, newRecomputedAmount);
     setRecomputedAmount(newRecomputedAmount);
     setOpenRecomputeModal(true);
+    setRecomputeInterestValue(TotalInterest);
+    setRebateAmount(rebateAmount);
   }
+  const isDueToday = (dueDate) => {
+    const today = new Date();
+    const due = new Date(dueDate);
+    return today.setHours(0, 0, 0, 0) === due.setHours(0, 0, 0, 0); // Compare dates only (ignores time)
+  };
   
+  const isPassedDue = (dueDate) => {
+    const today = new Date();
+    const due = new Date(dueDate);
+    return today > due; // Checks if today is after the due date (without time)
+  };
+
   return (
     <React.Fragment>
       <ToastContainer 
@@ -351,7 +362,23 @@ export default function OrderTable() {
                       </Box>
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{formatDate(loan.dueDate)}</Typography>
+                      {isDueToday(loan.dueDate) ? (
+                        <Chip label="Due Today" variant="soft" color="warning" endDecorator={<TbCalendarDue />}>
+                          <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
+                            Due Today
+                          </Typography>
+                        </Chip>
+                      ) : isPassedDue(loan.dueDate) ? (
+                        <Chip label="Passed Due" variant="soft" color="error" endDecorator={<TbCalendarDue />}>
+                          <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
+                            Passed Due
+                          </Typography>
+                        </Chip>
+                      ) : (
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
+                          {formatDate(loan.dueDate)}
+                        </Typography>
+                      )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                     <Chip
@@ -561,93 +588,63 @@ export default function OrderTable() {
 
       <Modal open={openRecomputeModal} onClose={() => setOpenRecomputeModal(false)}>
         <ModalDialog>
-          <DialogTitle>Recompute</DialogTitle>
-          <Divider />
           <Box
-      sx={{
-        width: '100%',
-        maxWidth: 400,
-        margin: '0 auto',
-        padding: '16px',
-        border: '1px solid #ccc',
-        borderRadius: '8px',
-        backgroundColor: '#f9f9f9',
-        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-        fontFamily: 'Arial, sans-serif',
-      }}
-    >
-      <Typography variant="h6" align="center" sx={{ marginBottom: '16px', fontWeight: 'bold' }}>
-        Recomputation Breakdown
-      </Typography>
+            sx={{
+              width: '100%',
+              maxWidth: 400,
+              margin: '0 auto',
+              padding: '16px',
+              border: '1px solid #ccc',
+              borderRadius: '8px',
+              backgroundColor: '#f9f9f9',
+              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+              fontFamily: 'Arial, sans-serif',
+            }}
+          >
+            <Typography variant="h6" align="center" sx={{ marginBottom: '16px', fontWeight: 'bold' }}>
+              Recomputation Breakdown
+            </Typography>
 
-      <Stack direction="column" spacing={2}>
-        {/* Interest Value Section */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-          <Typography variant="body1">Interest Value:</Typography>
-          <Typography variant="body1">₱ 2,000.00</Typography>
-        </Box>
+            <Stack direction="column" spacing={2}>
+              {/* Interest Value Section */}
+              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
+                <Typography variant="body1">Old Interest Value:</Typography>
+                <Typography variant="body1">₱ {oldTotalInterest}</Typography>
+              </Box>
 
-        {/* Total Interest */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-          <Typography variant="body1">Total Interest:</Typography>
-          <Typography variant="body1">₱ 8,000.00</Typography>
-        </Box>
+              {/* Total Interest */}
+              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
+                <Typography variant="body1">Running Balance:</Typography>
+                <Typography variant="body1">₱ {BalanceRecompute}</Typography>
+              </Box>
 
-        {/* Loan Amount with Interest */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-          <Typography variant="body1">Loan Amount with Interest:</Typography>
-          <Typography variant="body1">₱ 50,000.00</Typography>
-        </Box>
+              {/* Loan Amount with Interest */}
+              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
+                <Typography variant="body1">Recomputed Interest Value:</Typography>
+                <Typography variant="body1">₱ {recomputeInterestValue}</Typography>
+              </Box>
 
-        {/* Recomputed Amount */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-          <Typography variant="body1">Recomputed Amount:</Typography>
-          <Typography variant="body1">₱ 58,000.00</Typography>
-        </Box>
-
-        {/* New Recomputed Amount */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-          <Typography variant="body1">New Recomputed Amount:</Typography>
-          <Typography variant="body1">₱ 55,000.00</Typography>
-        </Box>
-
-        {/* Running Balance */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-          <Typography variant="body1">Running Balance:</Typography>
-          <Typography variant="body1">₱ 45,000.00</Typography>
-        </Box>
-
-        {/* Total Amount */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-          <Typography variant="body1">Total Amount:</Typography>
-          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>₱ 60,000.00</Typography>
-        </Box>
-      </Stack>
-
-      <Box sx={{ marginTop: '16px', textAlign: 'center' }}>
-        <Typography variant="body2" color="textSecondary">
-          Thank you for your payment!
-        </Typography>
-      </Box>
-    </Box>
+              {/* Recomputed Amount */}
+              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
+                <Typography variant="body1">Recomputed Loan Amount:</Typography>
+                <Typography variant="body1">₱ {recomputedAmount}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
+                <Typography variant="body1">Rebate Amount:</Typography>
+                <Typography variant="body1">₱ {rebateAmount}</Typography>
+              </Box>
+            </Stack>
+          </Box>
           <Divider />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {/* <Typography>Recomputed Amount</Typography>
-            <Input
-              label="Recomputed Amount"
-              variant="outlined"
-              startDecorator={<span>&#8369;</span>}
-              value={recomputedAmount}
-              readOnly
-            /> */}
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Button variant="outlined" color="success" onClick={() => setOpenRecomputeModal(false)}>
-                Confirm
+          <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', justifyContent: 'center' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Button variant="outlined" color="danger" onClick={() => setOpenRecomputeModal(false)}>
+                Cancel
               </Button>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Button variant="outlined" color="danger" onClick={() => setOpenRecomputeModal(false)}>
-                Cancel
+              <Button variant="outlined" color="success" onClick={() => setOpenRecomputeModal(false)}>
+                Make Payment
               </Button>
             </Box>
           </div>

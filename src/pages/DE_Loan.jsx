@@ -161,7 +161,7 @@ export default function ED_Loan({setToastActive ,setActiveStep}) {
           <Box
             component="form"
             onSubmit={handleLoanSubmit}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2, justifyContent:"center" }}
           >
             <Grid container spacing={2}>
               {/* Loan Amount */}
