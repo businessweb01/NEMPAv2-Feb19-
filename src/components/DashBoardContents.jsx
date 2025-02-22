@@ -1,8 +1,50 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import ReactApexChart from 'react-apexcharts';
 
 const DashboardContents = () => {
+  const [monthlyIncome, setMonthlyIncome] = useState(new Array(12).fill(0)); // Initialize with 0 values
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [usedBalance, setUsedBalance] = useState(0);
+  const [loanRequestsPerMonth, setLoanRequestsPerMonth] = useState(new Array(12).fill(0));
+  const [releasedLoansPerMonth, setReleasedLoansPerMonth] = useState(new Array(12).fill(0)); // New state for released loans
+  const [chartMounted, setChartMounted] = useState(false);
+
+  useEffect(() => {
+    setChartMounted(true);
+
+    // Create WebSocket connection
+    const socket = new WebSocket('ws://localhost:8080');
+
+    // Listen for data from the WebSocket server
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'balance_data') {
+        setTotalBalance(data.totalBalance ?? 0);
+        setUsedBalance(data.usedBalance ?? 0);
+      }
+
+      if (data.type === 'monthly_income_data') {
+        setMonthlyIncome(data.monthlyIncome ?? new Array(12).fill(0));
+      }
+
+      if (data.type === 'loan_requests_data') {
+        setLoanRequestsPerMonth(data.loanRequestsPerMonth ?? new Array(12).fill(0));
+      }
+
+      if (data.type === 'released_loans_data') {
+        setReleasedLoansPerMonth(data.releasedLoansPerMonth ?? new Array(12).fill(0)); // Update released loans data
+      }
+    };
+
+    // Cleanup WebSocket connection when the component unmounts
+    return () => {
+      setChartMounted(false);
+      socket.close();
+    };
+  }, []);
+
   // Doughnut chart options and data for bank balance
   const doughnutOptions = {
     chart: {
@@ -22,7 +64,7 @@ const DashboardContents = () => {
               show: true,
               label: 'Total Balance',
               formatter: function (w) {
-                return '$' + w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                return '₱' + totalBalance;
               }
             }
           }
@@ -31,12 +73,12 @@ const DashboardContents = () => {
     }
   };
 
-  const doughnutSeries = [75000, 25000];
+  const doughnutSeries = [totalBalance, usedBalance];
 
-  // Area chart options and data for monthly income
-  const areaOptions = {
+  // Bar chart options and data for monthly income
+  const barOptions = {
     chart: {
-      type: 'area',
+      type: 'bar',
       height: 350,
       toolbar: {
         show: false
@@ -45,85 +87,175 @@ const DashboardContents = () => {
     dataLabels: {
       enabled: false
     },
-    stroke: {
-      curve: 'smooth',
-      width: 2
+    xaxis: {
+      categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    },
+    yaxis: {
+      title: {
+        text: 'Income (₱)'
+      }
+    },
+    colors: ['#40916c'],
+    tooltip: {
+      y: {
+        formatter: function(value) {
+          return `₱${value}`;
+        }
+      }
+    }
+  };
+
+  const barSeries = [{
+    name: 'Monthly Income',
+    data: monthlyIncome, // Use the data received from the backend
+  }];
+
+  // Area chart options and data for loan requests per month
+  const areaOptions = {
+    chart: {
+      type: 'area',
+      height: 350
+    },
+    dataLabels: {
+      enabled: false
     },
     xaxis: {
       categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     },
     yaxis: {
       title: {
-        text: 'Income ($)'
+        text: 'Loan Requests'
       }
     },
-    fill: {
-      type: 'gradient',
-      gradient: {
-        shadeIntensity: 1,
-        opacityFrom: 0.7,
-        opacityTo: 0.3,
-        colorStops: [
-          {
-            offset: 0,
-            color: '#40916c',
-            opacity: 1
-          },
-          {
-            offset: 100,
-            color: '#40916c',
-            opacity: 0.3
-          }
-        ]
-      }
-    },
-    colors: ['#40916c'], // Set the stroke color
+    colors: ['#40916c'],
     tooltip: {
       y: {
         formatter: function(value) {
-          return `$${value}`;
+          return value;
         }
       }
     }
   };
-  
+
   const areaSeries = [{
-    name: 'Monthly Income',
-    data: [4500, 5200, 4800, 5500, 6000, 5800, 6200, 6500, 6300, 6800, 7000, 7200]
+    name: 'Loan Requests',
+    data: loanRequestsPerMonth, // Data for the loan requests per month
   }];
-  
+
+  // Bar chart options for released loans per month
+  const releasedLoansBarOptions = {
+    chart: {
+      type: 'bar',
+      height: 350,
+      toolbar: {
+        show: false
+      }
+    },
+    dataLabels: {
+      enabled: false
+    },
+    xaxis: {
+      categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    },
+    yaxis: {
+      title: {
+        text: 'Released Loans'
+      }
+    },
+    colors: ['#40916c'],
+    tooltip: {
+      y: {
+        formatter: function(value) {
+          return value;
+        }
+      }
+    }
+  };
+
+  const releasedLoansBarSeries = [{
+    name: 'Released Loans',
+    data: releasedLoansPerMonth, // Data for the released loans per month
+  }];
 
   return (
-    <Box sx={{ 
-      display: 'flex',
-      flexDirection: { xs: 'column', md: 'row' }, // Stack on mobile, row on medium and up
-      gap: 2,
-      width: '100%'
-    }}>
-      <Paper elevation={3} sx={{ p: 2, width: { xs: '100%', md: '30%' } }}>
-        <Typography variant="h6" gutterBottom>Beggining Balance</Typography>
-        <Box sx={{ height: 250 }}>
-          <ReactApexChart 
-            options={doughnutOptions}
-            series={doughnutSeries}
-            type="donut"
-            height="100%"
-          />
-        </Box>
-      </Paper>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'column' },
+        gap: 1,
+        width: '100%',
+        height: '100%'
+      }}
+    >
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' }, // Stack on mobile, row on medium and up
+        gap: 2,
+        width: '100%'
+      }}>
+        <Paper elevation={3} sx={{ p: 2, width: { xs: '100%', md: '30%' } }}>
+          <Typography variant="h6" gutterBottom>Bank Balance</Typography>
+          <Box sx={{ height: 250 }}>
+            {chartMounted && (
+              <ReactApexChart
+                options={doughnutOptions}
+                series={doughnutSeries}
+                type="donut"
+                height="100%"
+              />
+            )}
+          </Box>
+        </Paper>
 
-      <Paper elevation={3} sx={{ p: 2, width: { xs: '100%', md: '70%' } }}>
-        <Typography variant="h6" gutterBottom>Monthly Income</Typography>
-        <Box sx={{ height: 250 }}>
-          <ReactApexChart 
-            options={areaOptions}
-            series={areaSeries}
-            type="area"
-            height="100%"
-          />
-        </Box>
-      </Paper>
-      
+        <Paper elevation={3} sx={{ p: 2, width: { xs: '100%', md: '70%' } }}>
+          <Typography variant="h6" gutterBottom>Monthly Income</Typography>
+          <Box sx={{ height: 250 }}>
+            {chartMounted && (
+              <ReactApexChart
+                options={barOptions}
+                series={barSeries}
+                type="bar"
+                height="100%"
+              />
+            )}
+          </Box>
+        </Paper>
+      </Box>
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' }, // Stack on mobile, row on medium and up
+        gap: 2,
+        width: '100%'
+      }}>
+        <Paper elevation={3} sx={{ p: 2, width: { xs: '100%', md: '50%' } }}>
+          <Typography variant="h6" gutterBottom>Loan Requests per Month</Typography>
+          <Box sx={{ height: 250 }}>
+            {chartMounted && (
+              <ReactApexChart
+                options={areaOptions}
+                series={areaSeries}
+                type="area"
+                height="100%"
+              />
+            )}
+          </Box>
+        </Paper>
+
+        <Paper elevation={3} sx={{ p: 2, width: { xs: '100%', md: '50%' } }}>
+          <Typography variant="h6" gutterBottom>Released Loans per Month</Typography>
+          <Box sx={{ height: 250 }}>
+            {chartMounted && (
+              <ReactApexChart
+                options={releasedLoansBarOptions}
+                series={releasedLoansBarSeries}
+                type="bar"
+                height="100%"
+              />
+            )}
+          </Box>
+        </Paper>
+      </Box>
+
     </Box>
   );
 };

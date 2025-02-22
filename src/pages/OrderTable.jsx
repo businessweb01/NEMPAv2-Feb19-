@@ -100,6 +100,26 @@ export default function OrderTable() {
     setLoanAmount(loanAmount);
     setClientName(clientName);
     toast.dismiss();
+    const releasedDate = new Date().toISOString().split('T')[0];
+  
+    // Function to add 15 business days (skip weekends)
+    const addBusinessDays = (date, days) => {
+      let result = new Date(date);
+      let count = 0;
+  
+      while (count < days) {
+        result.setDate(result.getDate() + 1);
+  
+        // Skip weekends (Saturday = 6, Sunday = 0)
+        if (result.getDay() !== 6 && result.getDay() !== 0) {
+          count++;
+        }
+      }
+  
+      return result.toISOString().split('T')[0]; // Return in YYYY-MM-DD format
+    };
+    const PaymentStartAt = addBusinessDays(releasedDate, 15); // Add 15 business days
+    setPaymentStartAt(PaymentStartAt);
     try {
       const response = await fetch(`http://localhost:5000/fetchApprovers/${loanId}`);
       const data = await response.json();
@@ -122,7 +142,7 @@ export default function OrderTable() {
       toast.error('Please enter who is releasing the loan', { autoClose: 2000, containerId: 'main-toast' });
       return;
     }
-    const releasedDate = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    const releasedDate = new Date().toISOString().split('T')[0];
   
     // Function to add 15 business days (skip weekends)
     const addBusinessDays = (date, days) => {

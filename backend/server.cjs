@@ -145,15 +145,19 @@ app.post('/submit', upload.single('validId'), async (req, res) => {
 
 // The route to handle loan submissions
 app.post('/submit-loan', async (req, res) => {
-  // Destructure the required data from the request body
   const { clientId, loanAmount, loanInterest, noOfMonths, loanDate, total, biWeeklyAmortization } = req.body;
 
   try {
-    // Log the request body to check if loanAmount has a value
     console.log('Request Body:', req.body);
-    
     const pool = await mssql.connect(sqlConfig);
+    const balanceResult = await pool.request()
+      .query('SELECT TOP 1 remaining_Bal FROM coop_balance');
+    const remainingBal = balanceResult.recordset[0] ? balanceResult.recordset[0].remaining_Bal : 0;
 
+    // Check if loanAmount is greater than remaining_Bal
+    if (loanAmount > remainingBal) {
+      return res.status(400).json({ message: 'Insufficient remaining balance to process the loan.' });
+    }
     // Generate loan reference number (loanRefNo) with the current year and incrementing number
     const currentYear = new Date().getFullYear();
     const result = await pool.request()
@@ -178,9 +182,11 @@ app.post('/submit-loan', async (req, res) => {
         loanRefNo = `${currentYear}0001`; // Reset if the reference number is invalid
       }
     }
-    const noOfTerms =  noOfMonths *2;
+
+    const noOfTerms = noOfMonths * 2;  // Assuming bi-weekly payments
     const status = 'Waiting for Approval';
     const notReleased = 'No';
+    const interest_Amount = total - loanAmount;
     // Insert the loan data into the loan table
     const resultInsert = await pool.request()
       .input('clientId', mssql.NVarChar, clientId)
@@ -191,17 +197,20 @@ app.post('/submit-loan', async (req, res) => {
       .input('loanDate', mssql.Date, loanDate)  // Insert the loan date
       .input('total', mssql.Float, total)
       .input('biWeeklyAmortization', mssql.Float, biWeeklyAmortization)
-      .input('noOfTerms',mssql.Int, noOfTerms)
+      .input('noOfTerms', mssql.Int, noOfTerms)
       .input('onGoing', mssql.NVarChar, status)
       .input('notReleased', mssql.NVarChar, notReleased)
+      .input('interest_Amount', mssql.Float, interest_Amount)
       .query(`
-        INSERT INTO Loans (LoanRefNo, client_id, LoanAmount, interest, noOfMonths, LoanDate, TotalAmount,biWeeklyPay,running_balance,no_of_terms,status,isReleased)
-        VALUES (@loanRefNo, @clientId, @loanAmount, @loanInterest, @noOfMonths, @loanDate, @total, @biWeeklyAmortization, @total, @noOfTerms,@onGoing,@notReleased)
+        INSERT INTO Loans (LoanRefNo, client_id, LoanAmount, interest, noOfMonths, LoanDate, TotalAmount, biWeeklyPay, running_balance, no_of_terms, status, isReleased,interest_Amount)
+        VALUES (@loanRefNo, @clientId, @loanAmount, @loanInterest, @noOfMonths, @loanDate, @total, @biWeeklyAmortization, @total, @noOfTerms, @onGoing, @notReleased, @interest_Amount)
       `);
 
-    // Return response with the token
+    // Return response with the loan reference number
     res.status(200).json({
-      message: 'Loan data inserted successfully!',loanRefNo});
+      message: 'Loan data inserted successfully!',
+      loanRefNo
+    });
   } catch (err) {
     console.error('Error inserting loan data:', err);
     res.status(500).json({ message: 'Error inserting loan data.' });
@@ -244,6 +253,17 @@ app.get('/loanData', async (req, res) => {
 });
 
 
+// ✅ Function to ensure the date is not on a weekend (only for NextPaymentDate)
+function avoidWeekends(date) {
+  const day = date.getDay(); // 0 is Sunday, 6 is Saturday
+  if (day === 6) { // Saturday
+    date.setDate(date.getDate() + 2); // Move to Monday
+  } else if (day === 0) { // Sunday
+    date.setDate(date.getDate() + 1); // Move to Monday
+  }
+  return date;
+}
+
 app.post("/make-payment", async (req, res) => {
   const { currentLoanId, paymentDate, payment } = req.body;
 
@@ -279,41 +299,39 @@ app.post("/make-payment", async (req, res) => {
     let paymentDateFrom, paymentDateTo, nextPaymentDate;
 
     if (lastPayment.recordset.length === 0) {
-      // 🔹 First-time payment: Use releasedWhen & PaymentStartAt from Loans table
+      // 🔹 First-time payment: Use releasedWhen as PaymentDateFrom and PaymentStartAt as PaymentDateTo
       const firstPaymentDate = await pool.request()
         .input("loanRefNo", mssql.NVarChar, currentLoanId)
         .query(`SELECT releasedWhen, PaymentStartAt FROM Loans WHERE LoanRefNo = @loanRefNo`);
     
       if (firstPaymentDate.recordset.length > 0) {
-        paymentDateFrom = new Date(firstPaymentDate.recordset[0].releasedWhen);
-        paymentDateTo = new Date(firstPaymentDate.recordset[0].PaymentStartAt);
+        paymentDateFrom = new Date(firstPaymentDate.recordset[0].releasedWhen);  // releasedWhen as PaymentDateFrom
+        paymentDateTo = new Date(firstPaymentDate.recordset[0].PaymentStartAt); // PaymentStartAt as PaymentDateTo
       } else {
-        return res.status(400).json({ message: "Loan details not found." });
+        return res.status(400).json({ message: "LoanRefNo not found in Loans table." });
       }
+
+      // ✅ Add 15 days to PaymentDateTo to get NextPaymentDate
+      nextPaymentDate = new Date(paymentDateTo);
+      nextPaymentDate.setDate(paymentDateTo.getDate() + 15);  // Add 15 days for the NextPaymentDate
+
+      // ✅ Avoid weekends for NextPaymentDate only
+      nextPaymentDate = avoidWeekends(nextPaymentDate);
     } else {
-      // 🔹 Next payments: Use the **previous row's `NextPaymentDate`** as `PaymentDateFrom`
-      paymentDateFrom = new Date(lastPayment.recordset[0].NextPaymentDate);
-      paymentDateTo = new Date(paymentDateFrom); // Ensure this is a Date object
-      paymentDateTo.setDate(paymentDateTo.getDate() + 14);
-    
-      // ✅ Avoid weekends for `PaymentDateTo`
-      if (paymentDateTo.getDay() === 6) paymentDateTo.setDate(paymentDateTo.getDate() + 2); // Saturday → Monday
-      if (paymentDateTo.getDay() === 0) paymentDateTo.setDate(paymentDateTo.getDate() + 1); // Sunday → Monday
+      // 🔹 Next payments: Use the NextPaymentDate of the previous payment
+      nextPaymentDate = new Date(lastPayment.recordset[0].NextPaymentDate);
+      paymentDateTo = new Date(nextPaymentDate);  // PaymentDateTo is the NextPaymentDate of the previous payment
+
+      // Calculate PaymentDateFrom as 15 days before NextPaymentDate
+      paymentDateFrom = new Date(nextPaymentDate);
+      paymentDateFrom.setDate(paymentDateFrom.getDate() - 14);  // Ensure it's exactly 15 days earlier
+
+      // **DO NOT avoid weekends on PaymentDateFrom or PaymentDateTo**. These should always be exactly 15 days apart.
     }
 
-    // ✅ Convert dates to YYYY-MM-DD format
+    // Convert dates to YYYY-MM-DD format
     const formattedPaymentDateFrom = paymentDateFrom.toISOString().split("T")[0];
     const formattedPaymentDateTo = paymentDateTo.toISOString().split("T")[0];
-
-    // ✅ Calculate Next Payment Date (bi-weekly, avoiding weekends)
-    nextPaymentDate = new Date(paymentDateTo);
-    nextPaymentDate.setDate(nextPaymentDate.getDate() + 14);
-
-    // ✅ Avoid weekends for `NextPaymentDate`
-    if (nextPaymentDate.getDay() === 6) nextPaymentDate.setDate(nextPaymentDate.getDate() + 2); // Saturday → Monday
-    if (nextPaymentDate.getDay() === 0) nextPaymentDate.setDate(nextPaymentDate.getDate() + 1); // Sunday → Monday
-
-    // ✅ Convert NextPaymentDate to YYYY-MM-DD format
     const formattedNextPaymentDate = nextPaymentDate.toISOString().split("T")[0];
 
     // ✅ Insert payment into Payments table
@@ -328,8 +346,7 @@ app.post("/make-payment", async (req, res) => {
         OUTPUT INSERTED.PaymentID
         VALUES (@PaymentID, @LoanRefNo, @PaymentAmount, @PaymentDateFrom, @PaymentDateTo)
       `);
-  
-    // ✅ Ensure `@PaymentID` exists in UPDATE query
+
     const newPaymentID = insertedPayment.recordset[0].PaymentID;
 
     // ✅ Update running balance
@@ -360,21 +377,39 @@ app.post("/make-payment", async (req, res) => {
         .query(`UPDATE Loans SET status = @fullyPaid WHERE LoanRefNo = @LoanRefNo`);
     }
 
-    // ✅ Ensure `@PaymentID` exists in UPDATE query
+    // ✅ Ensure `@PaymentID` exists in UPDATE query for NextPaymentDate
+    const NextDueDate = new Date(paymentDateTo);
+    NextDueDate.setDate(paymentDateTo.getDate() + 15);
+    const formattedNextDueDate = avoidWeekends(NextDueDate).toISOString().split("T")[0];
+
     await pool.request()
       .input("LoanRefNo", mssql.NVarChar, currentLoanId)
       .input("PaymentID", mssql.NVarChar, newPaymentID)
-      .input("NextPaymentDate", mssql.Date, formattedNextPaymentDate)
+      .input("NextPaymentDate", mssql.Date, formattedNextDueDate)
       .query(`
         UPDATE Payments SET NextPaymentDate = @NextPaymentDate 
         WHERE LoanRefNo = @LoanRefNo AND PaymentID = @PaymentID
+      `);
+
+    // Update the remaining balance in coop_balance
+    await pool.request()
+      .input("paymentAmount", mssql.Float, payment)
+      .query(`
+        UPDATE coop_balance
+        SET remaining_Bal = remaining_Bal + @paymentAmount
+      `);
+    await pool.request()
+      .input("paymentAmount", mssql.Float, payment)
+      .query(`
+        UPDATE coop_balance
+        SET used_Bal = used_Bal - @paymentAmount
       `);
 
     res.status(200).json({
       updatedLoanAmount: updatedData.running_balance,
       updatedTotalAmount: updatedData.TotalAmount,
       updatedbiWeeklyAmount: updatedData.biWeeklyPay,
-      nextPaymentDate: formattedNextPaymentDate,
+      nextPaymentDate: formattedNextDueDate,
       message: "Payment recorded successfully!",
     });
 
@@ -383,6 +418,8 @@ app.post("/make-payment", async (req, res) => {
     res.status(500).json({ message: "Error processing payment.", error: error.message });
   }
 });
+
+
 
 app.get('/PendingLoans', async (req, res) => {
   try {
@@ -561,7 +598,36 @@ app.post('/releaseLoan', async (req, res) => {
 
   try {
     const pool = await mssql.connect(sqlConfig);
+    
+    const loanResult = await pool.request()
+      .input('loanId', mssql.Int, loanId) // Ensure proper input type (assuming loanId is an integer)
+      .query(`
+        SELECT LoanAmount FROM Loans WHERE LoanRefNo = @loanId
+      `);
+      // If no loan found
+    if (loanResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'Loan not found' });
+    }
+    const loanAmount = loanResult.recordset[0].LoanAmount;
+      // Fetch the current remaining_Bal from coop_balance
+    const balanceResult = await pool.request()
+    .query('SELECT remaining_Bal FROM coop_balance');
 
+    if (balanceResult.recordset.length === 0) {
+    return res.status(404).json({ error: 'No balance found' });
+    }
+
+    const remainingBalance = balanceResult.recordset[0].remaining_Bal;
+
+    // Subtract LoanAmount from remaining_Bal
+    const newRemainingBalance = remainingBalance - loanAmount;
+
+    // Update coop_balance with new remaining_Bal and used_Bal
+    await pool.request()
+    .query(`
+      UPDATE coop_balance
+      SET remaining_Bal = ${newRemainingBalance}, used_Bal = ${loanAmount}
+    `);
     console.log('releasedBy:', releasedBy);
     // Update the loan status to Released and set other fields
     const result = await pool.request()
@@ -609,6 +675,7 @@ app.get('/OnGoingLoans', async (req, res) => {
       JOIN client_info c ON l.client_id = c.client_id
       WHERE l.status = 'Released';
     `);
+    
 
     const loans = result.recordset.map(row => ({
       id: row.LoanRefNo, // Use LoanRefNo as the id
@@ -644,6 +711,223 @@ app.post('/fetchLoanDetails', async (req, res) => {
     console.error('Error fetching loan details:', err);
     res.status(500).json({ message: 'Error fetching loan details.' });
   }
+});
+
+// Backend Route for Balance Data and Monthly Income Combined
+wss.on('connection', (ws) => {
+  console.log('New WebSocket client connected');
+
+  // Fetch data for coop_balance (total balance)
+  const fetchCoopBalanceAndSend = async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+
+      // Query to get the balance data from coop_balance
+      const result = await pool.request()
+        .query(`
+          SELECT 
+            remaining_Bal AS totalBalance, 
+            used_Bal AS usedBalance
+          FROM coop_balance
+        `);
+
+      if (!result.recordset || result.recordset.length === 0) {
+        console.log("No data returned from the coop_balance table.");
+        ws.send(JSON.stringify({ error: 'No data returned from the coop_balance table.' }));
+        return;
+      }
+
+      const data = {
+        type: 'balance_data',
+        totalBalance: result.recordset[0].totalBalance || 0,
+        usedBalance: result.recordset[0].usedBalance || 0,
+      };
+
+      // Send the coop_balance data to the client
+      ws.send(JSON.stringify(data));
+    } catch (err) {
+      console.error('Error fetching coop_balance data:', err);
+      ws.send(JSON.stringify({ error: 'Failed to fetch coop_balance data' }));
+    }
+  };
+
+  // Fetch data for monthly income
+  const fetchMonthlyIncomeAndSend = async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+
+      // Query to get the monthly income data from Payments table
+      const result = await pool.request()
+        .query(`
+          SELECT 
+            FORMAT(CAST(PaymentDateTo AS DATETIME), 'yyyy-MM') AS paymentMonth, 
+            COALESCE(SUM(PaymentAmount), 0) AS monthlyIncome
+          FROM Payments
+          WHERE PaymentDateTo IS NOT NULL
+          GROUP BY FORMAT(CAST(PaymentDateTo AS DATETIME), 'yyyy-MM')
+        `);
+
+      if (!result.recordset || result.recordset.length === 0) {
+        console.log("No data returned from the Payments table.");
+        ws.send(JSON.stringify({ error: 'No data returned from the Payments table.' }));
+        return;
+      }
+
+      const data = {
+        type: 'monthly_income_data',
+        monthlyIncome: {}  // To store monthly income by month key (yyyy-MM)
+      };
+
+      // Organize the data by month
+      result.recordset.forEach(row => {
+        const month = row.paymentMonth;
+        data.monthlyIncome[month] = row.monthlyIncome;
+      });
+
+      // Ensure all months are accounted for (filling missing months with 0)
+      const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+      const monthlyIncomeData = months.map(month => {
+        const monthKey = `2025-${month}`;
+        return data.monthlyIncome[monthKey] || 0; // Default to 0 if no income for the month
+      });
+
+      // Send the monthly income data to the client
+      ws.send(JSON.stringify({
+        type: 'monthly_income_data',
+        monthlyIncome: monthlyIncomeData
+      }));
+    } catch (err) {
+      console.error('Error fetching monthly income data:', err);
+      ws.send(JSON.stringify({ error: 'Failed to fetch monthly income data' }));
+    }
+  };
+
+  // Fetch data for loan requests per month (LoanDate)
+  const fetchLoanRequestsPerMonthAndSend = async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+
+      // Query to get the loan requests per month (LoanDate column)
+      const result = await pool.request()
+        .query(`
+          SELECT 
+            FORMAT(CAST(LoanDate AS DATETIME), 'yyyy-MM') AS requestMonth, 
+            COUNT(*) AS loanRequests
+          FROM Loans
+          WHERE LoanDate IS NOT NULL
+          GROUP BY FORMAT(CAST(LoanDate AS DATETIME), 'yyyy-MM')
+        `);
+
+      if (!result.recordset || result.recordset.length === 0) {
+        console.log("No data returned from the Loans table for loan requests.");
+        ws.send(JSON.stringify({ error: 'No data returned from the Loans table for loan requests.' }));
+        return;
+      }
+
+      const data = {
+        type: 'loan_requests_data',
+        loanRequestsPerMonth: {}  // To store loan requests by month key (yyyy-MM)
+      };
+
+      // Organize the data by month
+      result.recordset.forEach(row => {
+        const month = row.requestMonth;
+        data.loanRequestsPerMonth[month] = row.loanRequests;
+      });
+
+      // Ensure all months are accounted for (filling missing months with 0)
+      const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+      const loanRequestsData = months.map(month => {
+        const monthKey = `2025-${month}`;
+        return data.loanRequestsPerMonth[monthKey] || 0; // Default to 0 if no requests for the month
+      });
+
+      // Send the loan requests per month data to the client
+      ws.send(JSON.stringify({
+        type: 'loan_requests_data',
+        loanRequestsPerMonth: loanRequestsData
+      }));
+    } catch (err) {
+      console.error('Error fetching loan requests per month data:', err);
+      ws.send(JSON.stringify({ error: 'Failed to fetch loan requests per month data' }));
+    }
+  };
+
+  // Fetch data for released loans per month (releasedWhen)
+  const fetchReleasedLoansPerMonthAndSend = async () => {
+    try {
+      const pool = await mssql.connect(sqlConfig);
+
+      // Query to get the released loans per month (releasedWhen column)
+      const result = await pool.request()
+        .query(`
+          SELECT 
+            FORMAT(CAST(releasedWhen AS DATETIME), 'yyyy-MM') AS releaseMonth, 
+            COUNT(*) AS releasedLoans
+          FROM Loans
+          WHERE releasedWhen IS NOT NULL
+          GROUP BY FORMAT(CAST(releasedWhen AS DATETIME), 'yyyy-MM')
+        `);
+
+      if (!result.recordset || result.recordset.length === 0) {
+        console.log("No data returned from the Loans table for released loans.");
+        ws.send(JSON.stringify({ error: 'No data returned from the Loans table for released loans.' }));
+        return;
+      }
+
+      const data = {
+        type: 'released_loans_data',
+        releasedLoansPerMonth: {}  // To store released loans by month key (yyyy-MM)
+      };
+
+      // Organize the data by month
+      result.recordset.forEach(row => {
+        const month = row.releaseMonth;
+        data.releasedLoansPerMonth[month] = row.releasedLoans;
+      });
+
+      // Ensure all months are accounted for (filling missing months with 0)
+      const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+      const releasedLoansData = months.map(month => {
+        const monthKey = `2025-${month}`;
+        return data.releasedLoansPerMonth[monthKey] || 0; // Default to 0 if no releases for the month
+      });
+
+      // Send the released loans per month data to the client
+      ws.send(JSON.stringify({
+        type: 'released_loans_data',
+        releasedLoansPerMonth: releasedLoansData
+      }));
+    } catch (err) {
+      console.error('Error fetching released loans per month data:', err);
+      ws.send(JSON.stringify({ error: 'Failed to fetch released loans per month data' }));
+    }
+  };
+
+  // Send initial data when the client connects
+  fetchCoopBalanceAndSend();
+  fetchMonthlyIncomeAndSend();
+  fetchLoanRequestsPerMonthAndSend();
+  fetchReleasedLoansPerMonthAndSend();
+
+  // Send periodic updates every 10 seconds
+  const intervalId = setInterval(() => {
+    fetchCoopBalanceAndSend();
+    fetchMonthlyIncomeAndSend();
+    fetchLoanRequestsPerMonthAndSend();
+    fetchReleasedLoansPerMonthAndSend();
+  }, 10000);
+
+  // Listen for messages from the client
+  ws.on('message', (message) => {
+    console.log('Received message:', message);
+  });
+
+  // Cleanup when the connection is closed
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
+    clearInterval(intervalId); // Clear the interval when the client disconnects
+  });
 });
 
 

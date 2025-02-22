@@ -126,7 +126,7 @@ export default function SignUp({setToastActive}) {
                 // ✅ Ensure `@token` exists in localStorage
                 if (result.token) {
                   localStorage.setItem('jwtToken', result.token);
-                  toast.success('Client Information Inserted Successfully', {
+                  toast.success(result.message, {
                     autoClose: 1500,
                     onOpen: () => setToastActive(true),
                     onClose: () => setToastActive(false)
@@ -134,7 +134,7 @@ export default function SignUp({setToastActive}) {
                 }
               } catch (error) {
                 console.error('Error submitting form data:', error);
-                toast.error('Error submitting form data');
+                toast.error(result.message || 'Error submitting form data');
               }
             }}
           >

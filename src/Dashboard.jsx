@@ -7,6 +7,7 @@ export default function Dashboard() {
       display: 'flex', 
       width: '100%', 
       maxWidth: '100%',
+      height: '100%',
       flexDirection: { xs: 'column', md: 'row' },
       gap: 2,
       overflow: 'hidden',
@@ -14,7 +15,8 @@ export default function Dashboard() {
     }}>
       <Box sx={{ 
         width: '100%',
-        flexGrow: 1
+        flexGrow: 1,
+        height: '100%'
       }}>
         <DashboardContents />
         

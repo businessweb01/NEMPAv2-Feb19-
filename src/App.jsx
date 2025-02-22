@@ -7,6 +7,7 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import MenuIcon from '@mui/icons-material/Menu';
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import { 
   Box, 
   Drawer, 
@@ -20,16 +21,16 @@ import {
   Typography, 
   CssBaseline, 
   IconButton, 
-  useMediaQuery 
-}from '@mui/material';
+  useMediaQuery,
+  Chip,
+} from '@mui/material';
 import { styled, useTheme } from '@mui/material/styles';
-import Stack from '@mui/material/Stack';
-import Chip from '@mui/material/Chip';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { useState, useEffect, useRef } from 'react';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import Neeco from '../public/NeecoLogo.svg';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+
 // Pages
 import Loan from './Checkout';
 import PendingLoan from './PendingLoans';
@@ -38,7 +39,7 @@ import Dashboard from './Dashboard';
 
 const drawerWidth = 280;
 
-const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
+const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })( 
   ({ theme }) => ({
     flexGrow: 1,
     padding: theme.spacing(3),
@@ -56,7 +57,8 @@ const theme = createTheme({
     },
   },
 });
-
+const name = "Eugene Van Linsangan";
+const email = "vaneugene01@gmail.com";
 const DashboardLayoutBasic = () => {
   const [pendingLoansCount, setPendingLoansCount] = useState(0);
   const [releasedLoansCount, setReleasedLoansCount] = useState(0);
@@ -77,7 +79,7 @@ const DashboardLayoutBasic = () => {
 
       wsRef.current.onopen = () => {
         console.log("WebSocket connected");
-        reconnectAttempts.current = 0; 
+        reconnectAttempts.current = 0;
       };
 
       wsRef.current.onmessage = (event) => {
@@ -132,95 +134,196 @@ const DashboardLayoutBasic = () => {
   const currentPage = PAGE_COMPONENTS[currentPath] || <Dashboard />;
 
   const drawerContent = (
-    <Box sx={{ overflow: 'auto' }}>
-      <List>
+    <Box sx={{ 
+      overflow: 'auto',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      backgroundColor: '#EFEFF6',
+      padding: '10px',
+    }}>
+      <List
+      sx={{
+        marginTop: '10px',
+        backgroundColor: '#FCFCFF',
+        borderRadius: '10px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+        padding: '10px',
+      }}
+      >
+        {/* Dashboard Item */}
         <ListItemButton
           onClick={() => handleNavigation('/dashboard')}
           sx={{
-            backgroundColor: currentPath === '/dashboard' ? '#b2dfdb' : 'transparent',
+            borderRadius: '8px',
+            padding: '6px 12px',  // Reduced padding
+            fontSize: '0.8em',  // Smaller font size
             '&:hover': {
               backgroundColor: '#b2dfdb',
             },
+            backgroundColor: currentPath === '/dashboard' ? '#b2dfdb' : 'transparent',
           }}>
-          <ListItemIcon><DashboardIcon /></ListItemIcon>
-          <ListItemText primary="Dashboard" />
+          <ListItemIcon sx={{ minWidth: 35 }}> {/* Smaller icon size */}
+            <DashboardIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Dashboard" sx={{ fontSize: '0.8em' }} />
         </ListItemButton>
   
+        {/* Loans Item */}
         <ListItemButton
           onClick={handleLoansClick}
           sx={{
-            backgroundColor: ['/loans/Pending', '/loans/OnGoing', '/loans/Paid'].includes(currentPath) ? '#b2dfdb' : 'transparent',
+            borderRadius: '8px',
+            padding: '6px 12px',  // Reduced padding
+            fontSize: '0.8em',  // Smaller font size
             '&:hover': {
               backgroundColor: '#b2dfdb',
             },
+            backgroundColor: ['/loans/Pending', '/loans/OnGoing', '/loans/Paid'].includes(currentPath) ? '#b2dfdb' : 'transparent',
           }}>
-          <ListItemIcon><AccountBalanceIcon /></ListItemIcon>
-          <ListItemText primary="Loans" />
+          <ListItemIcon sx={{ minWidth: 35 }}> {/* Smaller icon size */}
+            <AccountBalanceIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Loans" sx={{ fontSize: '0.8em' }} />
           {loansOpen ? <ExpandLess /> : <ExpandMore />}
         </ListItemButton>
-        
+  
+        {/* Loans Collapse Items */}
         <Collapse in={loansOpen} timeout="auto" unmountOnExit>
           <List component="div" disablePadding>
+            {/* Pending Loans */}
             <ListItemButton 
-              sx={{   
+              sx={{
+                borderRadius: '8px',
                 pl: 4,
+                padding: '6px 12px',
+                fontSize: '0.8em',
                 backgroundColor: currentPath === '/loans/Pending' ? '#b2dfdb' : 'transparent',
-                '&:hover': { backgroundColor: '#b2dfdb' }
+                '&:hover': { backgroundColor: '#b2dfdb' },
               }}
               onClick={() => handleNavigation('/loans/Pending')}>
-              <ListItemIcon><PendingActionsIcon /></ListItemIcon>
-              <ListItemText primary="Pending Loans" />
-              <Chip label={pendingLoansCount} sx={{ backgroundColor: '#023e8a', color: '#ffffff', fontWeight: 'bold' }} />
+              <ListItemIcon sx={{ minWidth: 35 }}> {/* Smaller icon size */}
+                <PendingActionsIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Pending Loans" sx={{ fontSize: '0.8em' }} />
+              <Chip label={pendingLoansCount} sx={{ backgroundColor: '#023e8a', color: '#ffffff', fontWeight: 'bold', fontSize: '0.75em' }} />
             </ListItemButton>
   
+            {/* On Going Loans */}
             <ListItemButton 
-              sx={{ 
+              sx={{
+                borderRadius: '8px',
                 pl: 4,
+                padding: '6px 12px',
+                fontSize: '0.8em',
                 backgroundColor: currentPath === '/loans/OnGoing' ? '#b2dfdb' : 'transparent',
-                '&:hover': { backgroundColor: '#b2dfdb' }
+                '&:hover': { backgroundColor: '#b2dfdb' },
               }} 
               onClick={() => handleNavigation('/loans/OnGoing')}>
-              <ListItemIcon><AssuredWorkloadIcon /></ListItemIcon>
-              <ListItemText primary="On Going Loans" />
-              <Chip label={releasedLoansCount} sx={{ backgroundColor: '#023e8a', color: '#ffffff', fontWeight: 'bold' }} />
+              <ListItemIcon sx={{ minWidth: 35 }}> {/* Smaller icon size */}
+                <AssuredWorkloadIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="On Going Loans" sx={{ fontSize: '0.8em' }} />
+              <Chip label={releasedLoansCount} sx={{ backgroundColor: '#023e8a', color: '#ffffff', fontWeight: 'bold', fontSize: '0.75em' }} />
             </ListItemButton>
   
+            {/* Paid Loans */}
             <ListItemButton 
-              sx={{ 
+              sx={{
+                borderRadius: '8px',
                 pl: 4,
+                padding: '6px 12px',
+                fontSize: '0.8em',
                 backgroundColor: currentPath === '/loans/Paid' ? '#b2dfdb' : 'transparent',
-                '&:hover': { backgroundColor: '#b2dfdb' }
+                '&:hover': { backgroundColor: '#b2dfdb' },
               }}
               onClick={() => handleNavigation('/loans/Paid')}>
-              <ListItemIcon><CreditScoreIcon /></ListItemIcon>
-              <ListItemText primary="Paid Loans" />
+              <ListItemIcon sx={{ minWidth: 35 }}> {/* Smaller icon size */}
+                <CreditScoreIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Paid Loans" sx={{ fontSize: '0.8em' }} />
             </ListItemButton>
           </List>
         </Collapse>
   
+        {/* Other Items */}
         <ListItemButton 
           onClick={() => handleNavigation('/loanApplication')}
           sx={{
+            borderRadius: '8px',
+            padding: '6px 12px',
+            fontSize: '0.8em',
+            '&:hover': { backgroundColor: '#b2dfdb' },
             backgroundColor: currentPath === '/loanApplication' ? '#b2dfdb' : 'transparent',
-            '&:hover': { backgroundColor: '#b2dfdb' }
           }}>
-          <ListItemIcon><AddCardIcon /></ListItemIcon>
-          <ListItemText primary="Loan Application" />
+          <ListItemIcon sx={{ minWidth: 35 }}> {/* Smaller icon size */}
+            <AddCardIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Loan Application" sx={{ fontSize: '0.8em' }} />
         </ListItemButton>
   
         <ListItemButton 
           onClick={() => handleNavigation('/transactionhistory')}
           sx={{
+            borderRadius: '8px',
+            padding: '6px 12px',
+            fontSize: '0.8em',
+            '&:hover': { backgroundColor: '#b2dfdb' },
             backgroundColor: currentPath === '/transactionhistory' ? '#b2dfdb' : 'transparent',
-            '&:hover': { backgroundColor: '#b2dfdb' }
           }}>
-          <ListItemIcon><ReceiptLongIcon /></ListItemIcon>
-          <ListItemText primary="Transaction History" />
+          <ListItemIcon sx={{ minWidth: 35 }}> {/* Smaller icon size */}
+            <ReceiptLongIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Transaction History" sx={{ fontSize: '0.8em' }} />
         </ListItemButton>
       </List>
+      <Box sx={{ mt: 'auto', mb: 2 }}>
+        <Box
+          sx={{
+            borderRadius: '12px',
+            padding: '16px',
+            backgroundColor: '#FCFCFF',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.08)',
+            transition: 'all 0.2s ease-in-out',
+            display: 'flex',
+            alignItems: 'center', // Aligns content horizontally
+            gap: 2,
+            justifyContent: 'space-between',
+          }}
+        >
+          <Box>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: '#2c3e50',
+              }}
+            >
+              {name}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                opacity: 0.7,
+                fontSize: '0.8rem',
+                fontWeight: 500,
+              }}
+            >
+              {email}
+            </Typography>
+          </Box>
+          <Box>
+            <LogoutRoundedIcon sx={{ color: '#d90429', fontSize: '1.5rem' }} />
+          </Box>
+        </Box>
+      </Box>
+
     </Box>
   );
   
+
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ display: 'flex' }}>
@@ -232,9 +335,9 @@ const DashboardLayoutBasic = () => {
                 <MenuIcon />
               </IconButton>
             )}
-            <Typography variant="h6" noWrap component="div" sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="h6" noWrap component="div" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
               <img src={Neeco} alt="Neeco Logo" style={{ width: '30px', height: 'auto', marginRight: '10px' }} />
-              Loan Application
+               NEECO II AREA 1
             </Typography>
           </Toolbar>
         </AppBar>
@@ -260,6 +363,7 @@ const DashboardLayoutBasic = () => {
             justifyContent: 'center',
             width: '100%', // Makes sure it takes full width
             padding: (theme) => theme.spacing(3),
+            scrollbarWidth: 'none',
           }}
         >
           <Toolbar />

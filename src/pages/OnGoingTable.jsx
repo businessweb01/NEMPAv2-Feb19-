@@ -369,7 +369,7 @@ export default function OrderTable() {
                           </Typography>
                         </Chip>
                       ) : isPassedDue(loan.dueDate) ? (
-                        <Chip label="Passed Due" variant="soft" color="error" endDecorator={<TbCalendarDue />}>
+                        <Chip label="Passed Due" variant="soft" color="danger" endDecorator={<TbCalendarDue />}>
                           <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
                             Passed Due
                           </Typography>
