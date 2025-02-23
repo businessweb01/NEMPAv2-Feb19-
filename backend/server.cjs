@@ -370,12 +370,57 @@ app.post("/make-payment", async (req, res) => {
     const updatedData = updatedLoan.recordset[0];
 
     // ✅ If fully paid, update loan status
+    const fullyPaidDate = new Date(); // Get the current date as a Date object
+    const dateAsString = fullyPaidDate.toISOString().split("T")[0];
     if (updatedData.running_balance <= 0) {
+      // Update loan status to "Fully Paid"
       await pool.request()
         .input("fullyPaid", mssql.NVarChar, "Fully Paid")
+        .input("fullyPaidDate", mssql.NVarChar, dateAsString) // Pass the Date object directly
         .input("LoanRefNo", mssql.NVarChar, currentLoanId)
-        .query(`UPDATE Loans SET status = @fullyPaid WHERE LoanRefNo = @LoanRefNo`);
+        .query(`
+          UPDATE Loans 
+          SET status = @fullyPaid, fullyPaidAt = @fullyPaidDate 
+          WHERE LoanRefNo = @LoanRefNo
+        `);
+    
+      // Update PaymentDateFrom, PaymentDateTo, and NextPaymentDate to 'Paid'
+      await pool.request()
+        .input("LoanRefNo", mssql.NVarChar, currentLoanId)
+        .input("PaymentID", mssql.NVarChar, newPaymentID)
+        .query(`
+          UPDATE Payments 
+          SET NextPaymentDate = 'Paid' 
+          WHERE LoanRefNo = @LoanRefNo AND PaymentID = @PaymentID
+        `);
+    
+      // Calculate the total sum of all payment amounts
+      const totalPayments = await pool.request()
+        .input("LoanRefNo", mssql.NVarChar, currentLoanId)
+        .query(`
+          SELECT SUM(PaymentAmount) AS TotalPayments 
+          FROM Payments 
+          WHERE LoanRefNo = @LoanRefNo
+        `);
+    
+      const totalPaidAmount = totalPayments.recordset[0].TotalPayments;
+    
+      // Update TotalAmountPaid in the Loans table
+      await pool.request()
+        .input("LoanRefNo", mssql.NVarChar, currentLoanId)
+        .input("totalPaidAmount", mssql.Decimal(18, 2), totalPaidAmount)
+        .query(`
+          UPDATE Loans
+          SET TotalAmountPaid = @totalPaidAmount
+          WHERE LoanRefNo = @LoanRefNo
+        `);
+    
+      // Respond back with a success message
+      return res.status(200).json({
+        message: "Loan fully paid and updated successfully!",
+      });
     }
+    
 
     // ✅ Ensure `@PaymentID` exists in UPDATE query for NextPaymentDate
     const NextDueDate = new Date(paymentDateTo);
@@ -694,6 +739,46 @@ app.get('/OnGoingLoans', async (req, res) => {
     res.status(500).send('Error retrieving data from database');
   }
 });
+
+app.get('/PaidLoans', async (req, res) => {
+  try {
+    const pool = await mssql.connect(sqlConfig);
+
+    // Fetch all fully paid loans (status = 'Fully Paid')
+    const result = await pool.request().query(`
+      SELECT 
+          l.LoanRefNo,
+          l.LoanAmount,
+          l.Interest,
+          l.fullyPaidAt, 
+          l.TotalAmountPaid,
+          l.status, 
+          c.fname, 
+          c.lname
+      FROM Loans l
+      JOIN client_info c ON l.client_id = c.client_id
+      WHERE l.status = 'Fully Paid';
+    `);
+    
+    const loans = result.recordset.map(row => ({
+      id: row.LoanRefNo, // Use LoanRefNo as the id
+      fullyPaidAt: row.fullyPaidAt, // ✅ Ensuring newest NextPaymentDate is used
+      loanAmount: row.LoanAmount,
+      totalAmountPaid: row.TotalAmountPaid,
+      interest: row.Interest,
+      status: row.status,
+      customer: {
+        name: `${row.fname} ${row.lname}`,
+      }
+    }));
+    console.log(loans.loanAmount);
+    res.json(loans); // Send the loans data back as JSON
+  } catch (err) {
+    console.error('Database query failed', err);
+    res.status(500).send('Error retrieving data from database');
+  }
+});
+
 
 app.post('/fetchLoanDetails', async (req, res) => {
   const { loanId } = req.body;

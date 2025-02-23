@@ -36,6 +36,7 @@ import Loan from './Checkout';
 import PendingLoan from './PendingLoans';
 import OnGoingLoan from './OnGoing';
 import Dashboard from './Dashboard';
+import PaidLoans from './PaidLoans';
 
 const drawerWidth = 280;
 
@@ -129,6 +130,7 @@ const DashboardLayoutBasic = () => {
     '/loanApplication': <Loan />,
     '/loans/Pending': <PendingLoan />,
     '/loans/OnGoing': <OnGoingLoan />,
+    '/loans/Paid': <PaidLoans />,
   };
 
   const currentPage = PAGE_COMPONENTS[currentPath] || <Dashboard />;

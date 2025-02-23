@@ -45,43 +45,14 @@ export default function OrderTable() {
   // Fetch Pending Loans
   const fetchLoans = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:5000/OnGoingLoans");
+      const response = await fetch("http://localhost:5000/PaidLoans");
       const data = await response.json();
-      
       setLoans(data);
-  
-      // ✅ Store running balance for each loan and parse it as a number
-      const loanBalances = data.reduce((acc, loan) => {
-        // Ensure loan amount is parsed as a number
-        acc[loan.id] = parseFloat(loan.amount);
-        return acc;
-      }, {});
-  
-      // Only set runningBalance when a loan is selected (you'll update this separately when selecting a loan)
-      // We don't set runningBalance here globally unless needed
-  
-      // ✅ Ensure bi-weekly payment does not exceed the loan amount
-      const initialBiWeeklyPayments = data.reduce((acc, loan) => {
-        acc[loan.id] = parseFloat(loan.biWeeklyPay) > parseFloat(loan.amount) 
-          ? parseFloat(loan.amount) 
-          : parseFloat(loan.biWeeklyPay);
-        return acc;
-      }, {});
-      setBiWeeklyPay(initialBiWeeklyPayments); // Set bi-weekly payments per loan ID
-  
-      // Initialize approvers for each loan as an empty array
-      const initialApprovers = data.reduce((acc, loan) => {
-        acc[loan.id] = [];
-        return acc;
-      }, {});
     } catch (error) {
       console.error("Error fetching loan data:", error);
       toast.error("Failed to fetch loan data", { autoClose: 2000, containerId: "main-toast" });
     }
   }, []);
-  
-  
-   
   useEffect(() => {
     fetchLoans();
   }, [fetchLoans]);
@@ -312,12 +283,12 @@ export default function OrderTable() {
               <tr>
                 {[
                   "Reference Number",
-                  "Running Balance",
-                  "Bi-Weekly Payment",
-                  "Client",
-                  "Installment Due Date",
-                  "Payment",
-                  "Recompute",
+                  "Loan Amount",
+                  "Interest Rate",
+                  "Total Amount Paid",
+                  "Client Name",
+                  "Payment Status",
+                  "Date",
                  
                 ].map((header, index) => (
                   <th
@@ -342,77 +313,47 @@ export default function OrderTable() {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {filteredLoans.length > 0 ? (
-                filteredLoans.map((loan) => (
-                  <tr key={loan.id} sx={{ cursor: 'pointer' }}>
-                    <td style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.id}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.amount}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.biWeeklyPay}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.customer.name}</Typography>
-                      </Box>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {isDueToday(loan.dueDate) ? (
-                        <Chip label="Due Today" variant="soft" color="warning" endDecorator={<TbCalendarDue />}>
-                          <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                            Due Today
-                          </Typography>
+
+            <tbody style={{textAlign: 'center'}}>
+                {filteredLoans.length > 0 ? (
+                    filteredLoans.map((loan) => (
+                    <tr key={loan.id}>
+                        <td sx={{ textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.id}</Typography>
+                        </td>
+                        <td sx={{ textAlign: 'center' }}>
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.loanAmount}</Typography>
+                        </td>
+                        <td sx={{ textAlign: 'center' }}>
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.interest}%</Typography>
+                        </td>
+                        <td sx={{ textAlign: 'center' }}>
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.totalAmountPaid}</Typography>
+                        </td>
+                        <td sx={{ textAlign: 'center' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.customer.name}</Typography>
+                        </Box>
+                        </td>
+                        <td sx={{ textAlign: 'center' }}>
+                        <Chip variant='soft' color='success' size='sm' sx={{cursor: 'pointer'}}>
+                            {loan.status}
                         </Chip>
-                      ) : isPassedDue(loan.dueDate) ? (
-                        <Chip label="Passed Due" variant="soft" color="danger" endDecorator={<TbCalendarDue />}>
-                          <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                            Passed Due
-                          </Typography>
-                        </Chip>
-                      ) : (
-                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                          {formatDate(loan.dueDate)}
-                        </Typography>
-                      )}
+                        </td>
+                        <td sx={{ textAlign: 'center' }}>
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{formatDate(loan.fullyPaidAt)}</Typography>
+                        </td>
+                    </tr>
+                    ))
+                ) : (
+                    <tr>
+                    <td colSpan="7" sx={{ textAlign: 'center' }}>
+                        <Typography variant="body-sm" sx={{ textAlign: 'center' }}>No results found</Typography>
                     </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Chip
-                        variant="soft"
-                        size="sm"
-                        endDecorator={<PaymentsIcon />}
-                        color="success"
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
-                      >
-                        Make Payment
-                      </Chip>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Chip
-                        variant="soft"
-                        size="sm"
-                        endDecorator={<FaCalculator />}
-                        color="primary"
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => handleRecompute(loan.id, loan.amount, loan.biWeeklyPay)}
-                      >
-                        Recompute
-                      </Chip>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center' }}>
-                    <Typography variant="body-sm">No results found</Typography>
-                  </td>
-                </tr>
-              )}
-            </tbody>
+                    </tr>
+                )}
+                </tbody>
+
           </Table>
         </Sheet>
       </Box>

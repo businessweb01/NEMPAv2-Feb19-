@@ -2,26 +2,29 @@ import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import Box from '@mui/joy/Box';
 import Chip from '@mui/joy/Chip';
+import Divider from '@mui/joy/Divider';
 import Typography from '@mui/joy/Typography';
-import Table from '@mui/joy/Table';
-import Sheet from '@mui/joy/Sheet';
+import List from '@mui/joy/List';
+import ListItem from '@mui/joy/ListItem';
+import ListItemContent from '@mui/joy/ListItemContent';
+import ListDivider from '@mui/joy/ListDivider';
+import ListItemText from '@mui/material/ListItemText';
 import Input from '@mui/joy/Input';
 import SearchIcon from '@mui/icons-material/Search';
 import Button from '@mui/joy/Button';
+import FormControl from '@mui/joy/FormControl';
+import FormLabel from '@mui/joy/FormLabel';
 import Modal from '@mui/joy/Modal';
 import ModalDialog from '@mui/joy/ModalDialog';
 import DialogTitle from '@mui/joy/DialogTitle';
 import Stack from '@mui/joy/Stack';
+import { Add, Remove } from '@mui/icons-material';
 import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import Divider from '@mui/joy/Divider';
-import PaymentsIcon from '@mui/icons-material/Payments';
-import Switch from '@mui/joy/Switch';
-import { FaCalculator } from "react-icons/fa6";
 import { TbCalendarDue } from "react-icons/tb";
-export default function OrderTable() {
+import Switch from '@mui/joy/Switch';
+export default function OrderList() {
   const [loans, setLoans] = React.useState([]);
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [open, setOpen] = React.useState(false);
   const [openReleaseModal, setOpenReleaseModal] = React.useState(false);
   const [currentLoanId, setCurrentLoanId] = React.useState(null); 
@@ -42,7 +45,7 @@ export default function OrderTable() {
   const [oldTotalInterest, setOldTotalInterest] = useState('0');
   const [BalanceRecompute, setBalanceRecompute] = useState('0');
   const [rebateAmount, setRebateAmount] = useState('0');
-  // Fetch Pending Loans
+
   const fetchLoans = useCallback(async () => {
     try {
       const response = await fetch("http://localhost:5000/OnGoingLoans");
@@ -96,10 +99,11 @@ export default function OrderTable() {
     setIsCustom(true);
     setIsBiWeekly(false);
   };
+
   // Filter rows based on the search query
-  const filteredLoans = loans.filter((loan) => {
+  const getFilteredLoans = () => loans.filter((loan) => {
     return (
-      loan.id.toLowerCase().includes(searchQuery.toLowerCase())||
+      loan.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       loan.customer.name.toLowerCase().includes(searchQuery.toLowerCase())
 
     );
@@ -254,170 +258,94 @@ export default function OrderTable() {
     const due = new Date(dueDate);
     return today > due; // Checks if today is after the due date (without time)
   };
+  const filteredLoans = loans.filter((loan) => {
+    return (
+      loan.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      loan.customer.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   return (
-    <React.Fragment>
-      <ToastContainer 
-        position="top-center" 
-        autoClose={2000}  // Set auto-close to 2 seconds
-        pauseOnHover={false}  
-        newestOnTop 
-        closeOnClick 
-        draggable={false}
-        containerId="main-toast"
+    <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+     <ToastContainer position="top-center" autoClose={1000}  />
+      <Input
+        size="sm"
+        placeholder="Search..."
+        startDecorator={<SearchIcon />}
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        sx={{ flexGrow: 1, marginBottom: 3}}
       />
-      <Box sx={{ display: { xs: 'none', sm: 'block' }, marginBottom: 2 }}>
-        {/* Search bar */}
-        <Box sx={{ display: 'flex', gap: 1, marginBottom: 2, width: '20%' }}>
-          <Input
-            size="sm"
-            placeholder="Search..."
-            startDecorator={<SearchIcon />}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ flexGrow: 1 }}
-          />
-        </Box>
-        {/* Table for non-mobile devices */}
-        <Sheet
-          variant="outlined"
-          sx={{
-            width: '100%',
-            borderRadius: 'sm',
-            flexShrink: 1,
-            overflow: 'auto',
-            minHeight: 0,
-          }}
-        >
-          <Table
-            aria-labelledby="tableTitle"
-            stickyHeader
-            hoverRow
-            sx={{
-              '--TableCell-headBackground': 'var(--joy-palette-background-level1)',
-              '--Table-headerUnderlineThickness': '1px',
-              '--TableRow-hoverBackground': 'var(--joy-palette-background-level1)',
-              '--TableCell-paddingY': '4px',
-              '--TableCell-paddingX': '8px',
+      {getFilteredLoans().map((loan) => (  
+        <List key={loan.id} size="sm" sx={{ '--ListItem-paddingX': 0 }}>
+          <ListItem
+             sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'start',
+              borderRadius: 2, // Rounded corners for a card-like shape
+              boxShadow: 5, // Stronger shadow for the card effect (higher values = stronger shadows)
             }}
-            style={{
-              width: '100%',
-            }}
-          >
-            <thead
-              style={{
-                backgroundColor: "#212529", // Ensures background is black
-              }}
             >
-              <tr>
-                {[
-                  "Reference Number",
-                  "Running Balance",
-                  "Bi-Weekly Payment",
-                  "Client",
-                  "Installment Due Date",
-                  "Payment",
-                  "Recompute",
-                 
-                ].map((header, index) => (
-                  <th
-                    key={index}
-                    style={{
-                      padding: "12px 6px",
-                      color: "white", // Ensures text is white
-                      backgroundColor: "#212529", // Fix: Apply background to each <th>
-                    }}
+            <ListItemContent sx={{ display: 'flex', gap: 2, alignItems: 'start' }}>
+              <div item={true}>
+                <Typography gutterBottom sx={{ fontWeight: 600 }}>
+                  {loan.customer.name}
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 0.5,
+                    mb: 1,
+                  }}
+                >
+                  <Box sx={{ display: 'flex',flexDirection:'column', gap: 1 }}>
+                  <Typography level="body-xs">Loan Ref. No:
+                      <Typography level="body-xs" sx={{fontWeight:'bold', marginLeft:1}}>{loan.id}</Typography>
+                  </Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Button variant='soft' color='primary'size="sm"  
+                  sx={{ whiteSpace: 'nowrap', color: 'primary' }}
+                  onClick={() => handleRecompute(loan.id, loan.amount, loan.biWeeklyPay)}
                   >
-                    <Typography
-                      variant="body-sm"
-                      sx={{
-                        textAlign: "center",
-                        display: "block",
-                        color: "inherit",
-                      }}
-                    >
-                      {header}
-                    </Typography>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLoans.length > 0 ? (
-                filteredLoans.map((loan) => (
-                  <tr key={loan.id} sx={{ cursor: 'pointer' }}>
-                    <td style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.id}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.amount}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.biWeeklyPay}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.customer.name}</Typography>
-                      </Box>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {isDueToday(loan.dueDate) ? (
-                        <Chip label="Due Today" variant="soft" color="warning" endDecorator={<TbCalendarDue />}>
-                          <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                            Due Today
-                          </Typography>
-                        </Chip>
-                      ) : isPassedDue(loan.dueDate) ? (
-                        <Chip label="Passed Due" variant="soft" color="danger" endDecorator={<TbCalendarDue />}>
-                          <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                            Passed Due
-                          </Typography>
-                        </Chip>
-                      ) : (
-                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                          {formatDate(loan.dueDate)}
-                        </Typography>
-                      )}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Chip
-                        variant="soft"
-                        size="sm"
-                        endDecorator={<PaymentsIcon />}
-                        color="success"
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
-                      >
-                        Make Payment
-                      </Chip>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Chip
-                        variant="soft"
-                        size="sm"
-                        endDecorator={<FaCalculator />}
-                        color="primary"
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => handleRecompute(loan.id, loan.amount, loan.biWeeklyPay)}
-                      >
-                        Recompute
-                      </Chip>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center' }}>
-                    <Typography variant="body-sm">No results found</Typography>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
-        </Sheet>
-      </Box>
+                      Recompute
+                  </Button>
+                  <Button variant='soft' color='success' size="sm"  
+                  sx={{ whiteSpace: 'nowrap', color: 'primary' }}
+                  onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
+                  >
+                    Make Payment
+                  </Button>
+                </Box>
+              </div>
+            </ListItemContent>
+            {isDueToday(loan.dueDate) ? (
+              <Chip label="Due Today" variant="soft" color="warning" endDecorator={<TbCalendarDue />}>
+                <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
+                  Due Today
+                </Typography>
+              </Chip>
+            ) : isPassedDue(loan.dueDate) ? (
+              <Chip label="Passed Due" variant="soft" color="error" endDecorator={<TbCalendarDue />}>
+                <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
+                  Passed Due
+                </Typography>
+              </Chip>
+            ) : (
+              <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
+               Due On {formatDate(loan.dueDate)}
+              </Typography>
+            )}
+          </ListItem>
+          <ListDivider />
+        </List>
+      ))}
 
-      <Modal open={open} onClose={() => setOpen(false)}>
+<Modal open={open} onClose={() => setOpen(false)}>
         <ModalDialog>
           <DialogTitle>Loan Payment</DialogTitle>
           <Divider />
@@ -650,6 +578,6 @@ export default function OrderTable() {
         </ModalDialog>
 
       </Modal>
-    </React.Fragment>
+    </Box>
   );
 }
