@@ -145,7 +145,7 @@ app.post('/submit', upload.single('validId'), async (req, res) => {
 
 // The route to handle loan submissions
 app.post('/submit-loan', async (req, res) => {
-  const { clientId, loanAmount, loanInterest, noOfMonths, loanDate, total, biWeeklyAmortization } = req.body;
+  const { clientId, loanAmount, loanInterest, noOfMonths, loanDate, total, biWeeklyAmortization, OldloanId } = req.body;
 
   try {
     console.log('Request Body:', req.body);
@@ -183,13 +183,31 @@ app.post('/submit-loan', async (req, res) => {
       }
     }
 
+    // Get client_id from Loans table if clientId is null or empty
+    let finalClientId = clientId;
+    if (!clientId) {
+      const clientIdResult = await pool.request()
+        .input('OldloanId', mssql.NVarChar, OldloanId)
+        .query(`
+          SELECT client_id
+          FROM Loans
+          WHERE LoanRefNo = @OldloanId
+        `);
+      if (clientIdResult.recordset.length > 0) {
+        finalClientId = clientIdResult.recordset[0].client_id;
+        console.log('Retrieved client_id:', finalClientId);
+      } else {
+        throw new Error('Could not find client_id for the given OldloanId');
+      }
+    }
+
     const noOfTerms = noOfMonths * 2;  // Assuming bi-weekly payments
     const status = 'Waiting for Approval';
     const notReleased = 'No';
     const interest_Amount = total - loanAmount;
     // Insert the loan data into the loan table
     const resultInsert = await pool.request()
-      .input('clientId', mssql.NVarChar, clientId)
+      .input('clientId', mssql.NVarChar, finalClientId)
       .input('loanRefNo', mssql.NVarChar, loanRefNo)
       .input('loanAmount', mssql.Float, loanAmount)
       .input('loanInterest', mssql.Int, loanInterest)
@@ -266,7 +284,23 @@ function avoidWeekends(date) {
 
 app.post("/make-payment", async (req, res) => {
   const { currentLoanId, paymentDate, payment } = req.body;
-
+  // Update the remaining balance in coop_balance
+  await pool.request()
+  .input("paymentAmount", mssql.Float, payment)
+  .query(`
+    UPDATE coop_balance
+    SET remaining_Bal = remaining_Bal + @paymentAmount
+  `);
+  await pool.request()
+  .input("paymentAmount", mssql.Float, payment)
+  .query(`
+    UPDATE coop_balance 
+    SET used_Bal = CASE
+      WHEN used_Bal - @paymentAmount < 0 THEN 0
+      ELSE used_Bal - @paymentAmount
+    END
+  `);
+  
   try {
     const pool = await mssql.connect(sqlConfig);
     const currentYear = new Date().getFullYear();
@@ -404,7 +438,6 @@ app.post("/make-payment", async (req, res) => {
         `);
     
       const totalPaidAmount = totalPayments.recordset[0].TotalPayments;
-    
       // Update TotalAmountPaid in the Loans table
       await pool.request()
         .input("LoanRefNo", mssql.NVarChar, currentLoanId)
@@ -414,14 +447,11 @@ app.post("/make-payment", async (req, res) => {
           SET TotalAmountPaid = @totalPaidAmount
           WHERE LoanRefNo = @LoanRefNo
         `);
-    
       // Respond back with a success message
       return res.status(200).json({
         message: "Loan fully paid and updated successfully!",
       });
     }
-    
-
     // ✅ Ensure `@PaymentID` exists in UPDATE query for NextPaymentDate
     const NextDueDate = new Date(paymentDateTo);
     NextDueDate.setDate(paymentDateTo.getDate() + 15);
@@ -435,21 +465,6 @@ app.post("/make-payment", async (req, res) => {
         UPDATE Payments SET NextPaymentDate = @NextPaymentDate 
         WHERE LoanRefNo = @LoanRefNo AND PaymentID = @PaymentID
       `);
-
-    // Update the remaining balance in coop_balance
-    await pool.request()
-      .input("paymentAmount", mssql.Float, payment)
-      .query(`
-        UPDATE coop_balance
-        SET remaining_Bal = remaining_Bal + @paymentAmount
-      `);
-    await pool.request()
-      .input("paymentAmount", mssql.Float, payment)
-      .query(`
-        UPDATE coop_balance
-        SET used_Bal = used_Bal - @paymentAmount
-      `);
-
     res.status(200).json({
       updatedLoanAmount: updatedData.running_balance,
       updatedTotalAmount: updatedData.TotalAmount,
@@ -762,6 +777,7 @@ app.get('/PaidLoans', async (req, res) => {
     
     const loans = result.recordset.map(row => ({
       id: row.LoanRefNo, // Use LoanRefNo as the id
+      clientId: row.client_id,
       fullyPaidAt: row.fullyPaidAt, // ✅ Ensuring newest NextPaymentDate is used
       loanAmount: row.LoanAmount,
       totalAmountPaid: row.TotalAmountPaid,
@@ -812,7 +828,8 @@ wss.on('connection', (ws) => {
         .query(`
           SELECT 
             remaining_Bal AS totalBalance, 
-            used_Bal AS usedBalance
+            used_Bal AS usedBalance,
+            beginning_Bal AS beginningBalance
           FROM coop_balance
         `);
 
@@ -826,6 +843,7 @@ wss.on('connection', (ws) => {
         type: 'balance_data',
         totalBalance: result.recordset[0].totalBalance || 0,
         usedBalance: result.recordset[0].usedBalance || 0,
+        beginningBalance: result.recordset[0].beginningBalance || 0
       };
 
       // Send the coop_balance data to the client
@@ -841,20 +859,21 @@ wss.on('connection', (ws) => {
     try {
       const pool = await mssql.connect(sqlConfig);
 
-      // Query to get the monthly income data from Payments table
+      // Query to get the monthly income data from Loans table
       const result = await pool.request()
         .query(`
           SELECT 
-            FORMAT(CAST(PaymentDateTo AS DATETIME), 'yyyy-MM') AS paymentMonth, 
-            COALESCE(SUM(PaymentAmount), 0) AS monthlyIncome
-          FROM Payments
-          WHERE PaymentDateTo IS NOT NULL
-          GROUP BY FORMAT(CAST(PaymentDateTo AS DATETIME), 'yyyy-MM')
+            FORMAT(CAST(fullyPaidAt AS DATETIME), 'yyyy-MM') AS paymentMonth,
+            SUM(interest_Amount) AS monthlyIncome
+          FROM Loans
+          WHERE status IN ('Fully Paid', 'Fully Paid(Recomputed)') 
+            AND fullyPaidAt IS NOT NULL
+          GROUP BY FORMAT(CAST(fullyPaidAt AS DATETIME), 'yyyy-MM')
         `);
 
       if (!result.recordset || result.recordset.length === 0) {
-        console.log("No data returned from the Payments table.");
-        ws.send(JSON.stringify({ error: 'No data returned from the Payments table.' }));
+        console.log("No data returned from the Loans table.");
+        ws.send(JSON.stringify({ error: 'No data returned from the Loans table.' }));
         return;
       }
 
@@ -1015,8 +1034,71 @@ wss.on('connection', (ws) => {
   });
 });
 
+app.get('/FetchLoanDetails/:loanId', async (req, res) => {
+  const { loanId } = req.params;
+  console.log(loanId);
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    
+    // Query to get loan payments for a given loanId
+    const paymentsQuery = `
+      SELECT PaymentDateFrom, PaymentDateTo, PaymentAmount
+      FROM Payments
+      WHERE LoanRefNo = @loanId
+    `;
+    
+    // Query to get loan approvers for the given loanId
+    const approversQuery = `
+      SELECT approver_name
+      FROM approvers
+      WHERE LoanRefNo = @loanId
+    `;
+    const releasedByQuery = `
+      SELECT releasedBy
+      FROM Loans
+      WHERE LoanRefNo = @loanId
+    `;
+    const clientIdQuery = `
+      SELECT client_id
+      FROM Loans
+      WHERE LoanRefNo = @loanId
+    `;
+    // Running both queries in parallel
+    const paymentsResult = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .query(paymentsQuery);
+    
+    const approversResult = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .query(approversQuery);
+    
+      const releasedByResult = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .query(releasedByQuery);
+
+    const clientIdResult = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .query(clientIdQuery);
 
 
+    // Send the results as JSON
+    res.json({
+      loanPayments: paymentsResult.recordset,
+      loanApprovers: approversResult.recordset,
+      releasedByWho: releasedByResult.recordset,
+      clientId: clientIdResult.recordset
+    });
+    console.log(paymentsResult.recordset);
+    console.log(approversResult.recordset);
+    console.log(releasedByResult.recordset);
+    console.log(clientIdResult.recordset);
+    console.log(clientIdResult.recordset);
+    
+  } catch (err) {
+    console.error('Error fetching loan details:', err);
+    res.status(500).json({ message: 'Error fetching loan details.' });
+  }
+});
 // Start the server
 app.listen(port, async () => {
   await connectToDatabase(); // Ensure database is connected before accepting requests

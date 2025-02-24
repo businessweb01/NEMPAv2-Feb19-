@@ -9,6 +9,8 @@ const DashboardContents = () => {
   const [loanRequestsPerMonth, setLoanRequestsPerMonth] = useState(new Array(12).fill(0));
   const [releasedLoansPerMonth, setReleasedLoansPerMonth] = useState(new Array(12).fill(0)); // New state for released loans
   const [chartMounted, setChartMounted] = useState(false);
+  const [beginningBalance, setBeginningBalance] = useState(0);
+  const [interestGain, setInterestGain] = useState(0);
 
   useEffect(() => {
     setChartMounted(true);
@@ -23,6 +25,7 @@ const DashboardContents = () => {
       if (data.type === 'balance_data') {
         setTotalBalance(data.totalBalance ?? 0);
         setUsedBalance(data.usedBalance ?? 0);
+        setBeginningBalance(data.beginningBalance ?? 0);
       }
 
       if (data.type === 'monthly_income_data') {
@@ -51,7 +54,7 @@ const DashboardContents = () => {
       type: 'donut',
     },
     labels: ['Available Balance', 'Used Balance'],
-    colors: ['#40916c', '#fcbf49'],
+    colors: ['#40916c', '#fcbf49'], // Added blue color for Interest Gain
     legend: {
       position: 'bottom'
     },
@@ -64,7 +67,7 @@ const DashboardContents = () => {
               show: true,
               label: 'Total Balance',
               formatter: function (w) {
-                return '₱' + totalBalance;
+                return '₱' + (totalBalance).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
               }
             }
           }
@@ -73,7 +76,10 @@ const DashboardContents = () => {
     }
   };
 
-  const doughnutSeries = [totalBalance, usedBalance];
+  const doughnutSeries = [
+    Number(totalBalance.toFixed(2)), 
+    Number(usedBalance.toFixed(2)), 
+  ];
 
   // Bar chart options and data for monthly income
   const barOptions = {
@@ -193,8 +199,8 @@ const DashboardContents = () => {
         gap: 2,
         width: '100%'
       }}>
-        <Paper elevation={3} sx={{ p: 2, width: { xs: '100%', md: '30%' } }}>
-          <Typography variant="h6" gutterBottom>Bank Balance</Typography>
+        <Paper elevation={3} sx={{ width: { xs: '100%', md: '30%' } }}>
+          <Typography variant="h6" sx={{ pt: 2, pl: 2 }}>Balance</Typography>
           <Box sx={{ height: 250 }}>
             {chartMounted && (
               <ReactApexChart
@@ -208,14 +214,15 @@ const DashboardContents = () => {
         </Paper>
 
         <Paper elevation={3} sx={{ p: 2, width: { xs: '100%', md: '70%' } }}>
-          <Typography variant="h6" gutterBottom>Monthly Income</Typography>
+          <Typography variant="h6" gutterBottom>Cumulative Interest Payment on Fully Paid Loan</Typography>
           <Box sx={{ height: 250 }}>
             {chartMounted && (
               <ReactApexChart
                 options={barOptions}
-                series={barSeries}
+                series= {barSeries}
                 type="bar"
                 height="100%"
+                
               />
             )}
           </Box>
