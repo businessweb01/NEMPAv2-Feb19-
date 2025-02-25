@@ -278,7 +278,6 @@ export default function OrderTable() {
                     <tr key={loan.id} sx={{cursor: 'pointer'}}>
                         <td sx={{ textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
                         <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.id}</Typography>
-                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.clientId}</Typography>
                         </td>
                         <td sx={{ textAlign: 'center' }}>
                         <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.loanAmount}</Typography>

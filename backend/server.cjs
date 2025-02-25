@@ -800,14 +800,29 @@ app.post('/fetchLoanDetails', async (req, res) => {
   const { loanId } = req.body;
   try {
     const pool = await mssql.connect(sqlConfig);
+    
+    // Get loan details and total payments in a single query
     const result = await pool.request()
       .input('loanId', mssql.NVarChar, loanId)
       .query(`
-        SELECT *
-        FROM Loans
-        WHERE LoanRefNo = @loanId
+        SELECT 
+          l.*,
+          ISNULL((
+            SELECT SUM(PaymentAmount) 
+            FROM Payments 
+            WHERE LoanRefNo = @loanId
+          ), 0) as TotalPayments
+        FROM Loans l
+        WHERE l.LoanRefNo = @loanId
       `);
-    res.json(result.recordset[0]);
+
+    if (result.recordset.length > 0) {
+      const loanDetails = result.recordset[0];
+      res.json(loanDetails);
+    } else {
+      res.status(404).json({ message: 'Loan not found.' });
+    }
+
   } catch (err) {
     console.error('Error fetching loan details:', err);
     res.status(500).json({ message: 'Error fetching loan details.' });
@@ -1099,6 +1114,123 @@ app.get('/FetchLoanDetails/:loanId', async (req, res) => {
     res.status(500).json({ message: 'Error fetching loan details.' });
   }
 });
+
+/// Route to fetch all loan details
+app.get('/fetch-all-loan-details', (req, res) => {
+  // Query to fetch LoanRefNo, fullyPaidAt, totalAmountPaid, and status from the Loans table
+  const loanQuery = `
+    SELECT LoanRefNo, fullyPaidAt, totalAmountPaid, status, releasedBy 
+    FROM Loans 
+    WHERE status IN ('Released', 'Fully Paid', 'Fully Paid(Recomputed)');
+  `;
+
+  pool.query(loanQuery, (err, result) => {
+      if (err) {
+          return res.status(500).json({ error: 'Failed to fetch loans' });
+      }
+
+      // Ensure you're accessing the recordset, not just the result object
+      const loanRows = result.recordset; // This will be an array of rows
+
+      if (!Array.isArray(loanRows)) {
+          return res.status(500).json({ error: 'Unexpected response structure from the database' });
+      }
+
+      // Create an array of LoanRefNos
+      const loanRefNos = loanRows.map(row => row.LoanRefNo);
+
+      if (loanRefNos.length === 0) {
+          return res.status(200).json({ message: 'No loans found' });
+      }
+
+      // Query to fetch Payments based on LoanRefNos
+      const paymentsQuery = `
+          SELECT LoanRefNo, PaymentAmount, PaymentDateTo 
+          FROM Payments 
+          WHERE LoanRefNo IN (${loanRefNos.map(refNo => `'${refNo}'`).join(', ')});
+      `;
+
+      // Run the payments query to fetch payments
+      pool.query(paymentsQuery, (err, paymentResult) => {
+          if (err) {
+              return res.status(500).json({ error: 'Failed to fetch payments' });
+          }
+
+          const paymentRows = paymentResult.recordset;
+
+          // Combine the data into a result
+          const result = loanRefNos.map(refNo => {
+              const loan = loanRows.find(loan => loan.LoanRefNo === refNo);
+              const payments = paymentRows.filter(payment => payment.LoanRefNo === refNo);
+
+              // Determine the payment date based on loan status
+              let paymentDate = '';
+              let displayAmount = 0; // This will hold the amount to display based on status
+
+              if (loan.status === 'Fully Paid' || loan.status === 'Fully Paid(Recomputed)') {
+                  paymentDate = loan.fullyPaidAt; // Use fullyPaidAt for Fully Paid or Fully Paid(Recomputed)
+                  displayAmount = loan.totalAmountPaid; // Use totalAmountPaid for Fully Paid status
+              } else if (loan.status === 'Released') {
+                  paymentDate = payments[0]?.PaymentDateTo || ''; // Use PaymentDateTo for Released
+                  displayAmount = payments.reduce((total, payment) => total + payment.PaymentAmount, 0); // Sum all PaymentAmount for Released
+              }
+
+              return {
+                  LoanRefNo: loan.LoanRefNo,
+                  Status: loan.status,
+                  TotalAmountPaid: loan.totalAmountPaid,
+                  ReleasedBy: loan.releasedBy,
+                  Payments: payments.map(payment => ({
+                      PaymentAmount: loan.status === 'Fully Paid' || loan.status === 'Fully Paid(Recomputed)' ? loan.totalAmountPaid : payment.PaymentAmount,
+                      PaymentDate: paymentDate, // Use the determined payment date
+                  })),
+                  DisplayAmount: displayAmount // Add the display amount (either totalAmountPaid or PaymentAmount)
+              };
+          });
+
+          // Send the response back with the combined data
+          res.status(200).json(result);
+      });
+  });
+});
+
+app.post('/PayRecomputedLoan', async (req, res) => {
+  const { loanId, recomputedAmount, recomputeInterestValue, recomputeDate, dateNow, status, balance, startOfPayment } = req.body;
+  console.log(req.body);
+  try{
+    const pool = await mssql.connect(sqlConfig);
+    await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .query(`
+        SELECT l.*, 
+        (SELECT COUNT(*) FROM Payments WHERE LoanRefNo = @loanId) as PaymentCount
+        FROM Loans l 
+        WHERE l.LoanRefNo = @loanId
+      `);
+      const paymentCount = result.recordset[0].PaymentCount;
+
+    const result = await pool.request()
+      .input('loanId', mssql.NVarChar, loanId)
+      .input('recomputedAmount', mssql.Float, recomputedAmount)
+      .input('recomputeInterestValue', mssql.Float, recomputeInterestValue)
+      .input('recomputeDate', mssql.Date, recomputeDate)
+      .input('dateNow', mssql.Date, dateNow)
+      .input('status', mssql.VarChar, status)
+      .input('balance', mssql.Float, balance)
+      .query(`
+        UPDATE Loans
+        SET status = @status, running_balance = @balance, fullyPaidAt = @dateNow, totalAmountPaid = @recomputedAmount, interest_Amount = @recomputeInterestValue
+      `);
+  }catch(error){
+    console.error("Error recomputing:", error);
+    res.status(500).json({ message: 'Error recomputing.' });
+  }
+});
+
+
+
+
+
 // Start the server
 app.listen(port, async () => {
   await connectToDatabase(); // Ensure database is connected before accepting requests

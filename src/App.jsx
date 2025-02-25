@@ -37,7 +37,7 @@ import PendingLoan from './PendingLoans';
 import OnGoingLoan from './OnGoing';
 import Dashboard from './Dashboard';
 import PaidLoans from './PaidLoans';
-
+import TransactionHistory from './TransactHistory';
 const drawerWidth = 280;
 
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })( 
@@ -131,6 +131,7 @@ const DashboardLayoutBasic = () => {
     '/loans/Pending': <PendingLoan />,
     '/loans/OnGoing': <OnGoingLoan />,
     '/loans/Paid': <PaidLoans />,
+    '/transactionhistory': <TransactionHistory />,
   };
 
   const currentPage = PAGE_COMPONENTS[currentPath] || <Dashboard />;

@@ -8,262 +8,181 @@ import List from '@mui/joy/List';
 import ListItem from '@mui/joy/ListItem';
 import ListItemContent from '@mui/joy/ListItemContent';
 import ListDivider from '@mui/joy/ListDivider';
-import ListItemText from '@mui/material/ListItemText';
 import Input from '@mui/joy/Input';
 import SearchIcon from '@mui/icons-material/Search';
 import Button from '@mui/joy/Button';
-import FormControl from '@mui/joy/FormControl';
-import FormLabel from '@mui/joy/FormLabel';
 import Modal from '@mui/joy/Modal';
 import ModalDialog from '@mui/joy/ModalDialog';
 import DialogTitle from '@mui/joy/DialogTitle';
 import Stack from '@mui/joy/Stack';
-import { Add, Remove } from '@mui/icons-material';
 import { ToastContainer, toast } from 'react-toastify';
-import { TbCalendarDue } from "react-icons/tb";
-import Switch from '@mui/joy/Switch';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import Menu from '@mui/joy/Menu';
+import MenuItem from '@mui/joy/MenuItem';
 export default function OrderList() {
   const [loans, setLoans] = React.useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const [openReleaseModal, setOpenReleaseModal] = React.useState(false);
-  const [currentLoanId, setCurrentLoanId] = React.useState(null); 
-  const [runningBalance, setRunningBalance] = useState('0');
-  const [biWeeklyPay, setBiWeeklyPay] = useState('0'); 
-  const [customAmount, setCustomAmount] = useState('0');
-  const [isBiWeekly, setIsBiWeekly] = useState(true); 
-  const [isCustom, setIsCustom] = useState(false);
-  const [recomputeDate, setRecomputeDate] = useState('');
-  const [startOfPayment, setStartOfPayment] = useState('');
-  const[recomputedAmount, setRecomputedAmount] = useState('0');
-  const[loanValue, setLoanValue] = useState('0');
-  const [totalAmount, setTotalAmount] = useState('0');
-  const [interestRate, setInterestRate] = useState('0');
-  const [runningBalanceRecompute, setRunningBalanceRecompute] = useState('0');
-  const [openRecomputeModal, setOpenRecomputeModal] = useState(false);
-  const [recomputeInterestValue, setRecomputeInterestValue] = useState('0');
-  const [oldTotalInterest, setOldTotalInterest] = useState('0');
-  const [BalanceRecompute, setBalanceRecompute] = useState('0');
-  const [rebateAmount, setRebateAmount] = useState('0');
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [openMenu, setOpenMenu] = useState(false);
+  const [currentLoanId, setCurrentLoanId] = useState(null);
+  const [loanPayments, setLoanPayments] = useState([]);
+  const [loanApprovers, setLoanApprovers] = useState([]);
+  const [releasedBy, setReleasedBy] = useState(null);
+  const [loanAmount, setLoanAmount] = useState(0);
+  const [loanInterest, setLoanInterest] = useState(1);
+  const [noOfMonths, setNoOfMonths] = useState(0);
+  const [total, setTotalAmount] = useState(0);
+  const [biWeeklyAmortization, setBiWeeklyAmortization] = useState(0);
+  const [clientId, setClientId] = useState(null);
 
   const fetchLoans = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:5000/OnGoingLoans");
+      const response = await fetch("http://localhost:5000/PaidLoans");
       const data = await response.json();
-      
       setLoans(data);
-  
-      // ✅ Store running balance for each loan and parse it as a number
-      const loanBalances = data.reduce((acc, loan) => {
-        // Ensure loan amount is parsed as a number
-        acc[loan.id] = parseFloat(loan.amount);
-        return acc;
-      }, {});
-  
-      // Only set runningBalance when a loan is selected (you'll update this separately when selecting a loan)
-      // We don't set runningBalance here globally unless needed
-  
-      // ✅ Ensure bi-weekly payment does not exceed the loan amount
-      const initialBiWeeklyPayments = data.reduce((acc, loan) => {
-        acc[loan.id] = parseFloat(loan.biWeeklyPay) > parseFloat(loan.amount) 
-          ? parseFloat(loan.amount) 
-          : parseFloat(loan.biWeeklyPay);
-        return acc;
-      }, {});
-      setBiWeeklyPay(initialBiWeeklyPayments); // Set bi-weekly payments per loan ID
-  
-      // Initialize approvers for each loan as an empty array
-      const initialApprovers = data.reduce((acc, loan) => {
-        acc[loan.id] = [];
-        return acc;
-      }, {});
     } catch (error) {
       console.error("Error fetching loan data:", error);
       toast.error("Failed to fetch loan data", { autoClose: 2000, containerId: "main-toast" });
     }
   }, []);
-  
-  
-   
   useEffect(() => {
     fetchLoans();
   }, [fetchLoans]);
-
-  const handleBiWeeklyToggle = () => {
-    setIsBiWeekly(true);
-    setIsCustom(false);
-    setCustomAmount('0'); // Reset custom amount when switching to Bi-Weekly
-  };
-  
-  const handleCustomToggle = () => {
-    setIsCustom(true);
-    setIsBiWeekly(false);
-  };
-
   // Filter rows based on the search query
-  const getFilteredLoans = () => loans.filter((loan) => {
+  const filteredLoans = loans.filter((loan) => {
     return (
-      loan.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      loan.id.toLowerCase().includes(searchQuery.toLowerCase())||
       loan.customer.name.toLowerCase().includes(searchQuery.toLowerCase())
 
     );
   });
-  const handleLoanClick = (loanId, loanAmount, biWeeklyPay) => {
-    // First, determine the correct biWeeklyPay based on the loan amount and the biWeeklyPay.
-    const validBiWeeklyPay = loanAmount < biWeeklyPay ? loanAmount : biWeeklyPay;
-  
-    // Update the state with the correct values
-    setCurrentLoanId(loanId);
-    setRunningBalance(loanAmount);
-    setBiWeeklyPay(validBiWeeklyPay);  // Set biWeeklyPay only once based on the condition
-    setOpen(true);  // Open the modal
-  };
   
   const formatDate = (loanDate) => {
     const date = new Date(loanDate); // Convert the string to a Date object
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     return date.toLocaleDateString('en-US', options); // Format the date as 'Feb 17 2025'
   };
+  const handleClick = (id, event) => {
+    setCurrentLoanId(id); // Store the current loan ID
+    setAnchorEl(event.currentTarget); // Set the element where the menu will be anchored
+    setOpenMenu(true); // Open the menu
+    console.log(id); // Log the ID for debugging
+  };
+  const handleClose = () => {
+    setAnchorEl(null);
+    setOpenMenu(false);
+    setLoanPayments([]);
+    setLoanApprovers([]);
+    setReleasedBy(null);
+    setLoanAmount(0);
+    setLoanInterest(1);
+    setNoOfMonths(0);
+    setTotalAmount(0);
+    setBiWeeklyAmortization(0);
+  };
+  // Close the menu if the user clicks outside of it
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (anchorEl && !anchorEl.contains(event.target)) {
+        handleClose();
+      }
+    };
 
-  const handleMakePayment = async () => {
-    if (!currentLoanId) {
-      toast.error("Missing Loan Reference Number!", { autoClose: 2000 });
-      return;
-    }
-  
-    const paymentDate = new Date().toISOString().split("T")[0]; // Format YYYY-MM-DD
-    const paymentAmount = customAmount !== '0' ? customAmount : biWeeklyPay;
-  
-    if (!paymentAmount || isNaN(paymentAmount) || paymentAmount <= 0) {
-      toast.error("Invalid payment amount!", { autoClose: 2000 });
-      return;
-    }
-  
-    try {
-      const response = await fetch("http://localhost:5000/make-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentLoanId, paymentDate, payment: paymentAmount }),
-      });
-  
-      const data = await response.json();
+    document.addEventListener('click', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [anchorEl]);
+
+  const handleViewLoanDetails = async () => {
+    setOpenReleaseModal(true);
+    const loanId = currentLoanId;
+    // Ensure currentLoanId is set before this
+    try{
+      const response = await fetch(`http://localhost:5000/FetchLoanDetails/${loanId}`);
+      
       if (response.ok) {
-        toast.success(data.message || "Payment successful!", { autoClose: 2000, containerId: 'main-toast' });
-        setRunningBalance(data.updatedLoanAmount);
-        if (data.updatedLoanAmount < data.updatedbiWeeklyAmount) {
-          setBiWeeklyPay(data.updatedLoanAmount);
-        } else {
-          setBiWeeklyPay(data.updatedbiWeeklyAmount);
-        }
-  
-        // Refresh the loan data after payment
-        fetchLoans();
+        const data = await response.json();
+        setLoanPayments(data.loanPayments);
+        setLoanApprovers(data.loanApprovers);
+        setReleasedBy(data.releasedByWho);
+        setClientId(data.clientId[0].client_id);
+        setLoanInterest(data.loanInterest);
+        console.log(data.clientId);
+        console.log(data.loanPayments);
+        console.log(data.loanApprovers);
+        console.log(data.releasedByWho);
       } else {
-        toast.error(data.message || "Payment failed!", { autoClose: 2000, containerId: 'main-toast' });
+        console.error('Failed to fetch loan details.');
       }
     } catch (error) {
-      console.error("Error making payment:", error);
-      toast.error("An error occurred while making the payment.", { autoClose: 2000, containerId: 'main-toast' });
+      console.error('Error fetching loan details:', error);
     }
+  };
+  const handleRequestLoan = () => {
+    console.log(currentLoanId); // Log the current loan ID
+    setOpen(true);
   };
 
-  const calculateMonthsDifference = (startOfPayment) => {
-    // Step 1: Convert the startOfPayment string to a Date object
-    const startDate = new Date(startOfPayment); // 'yyyy-mm-dd' format is directly parsed by JavaScript's Date constructor
-    
-    // Ensure that the date was correctly parsed
-    if (isNaN(startDate)) {
-      console.error("Error parsing the start date");
-      return NaN; // Return NaN if the date parsing fails
+  useEffect(() => {
+    const loanAmountNumber = parseFloat(loanAmount);
+    const interestRateNumber = parseFloat(loanInterest);
+    const noOfMonthsNumber = parseInt(noOfMonths, 10);
+  
+    if (loanAmountNumber && interestRateNumber && noOfMonthsNumber) {
+      // Calculate the total amount
+      const calculatedTotalAmount = loanAmountNumber + (loanAmountNumber * (interestRateNumber / 100) * noOfMonthsNumber);
+      setTotalAmount(calculatedTotalAmount);
+  
+      // Calculate bi-weekly amortization
+      const biWeeklyAmortization = calculatedTotalAmount / (noOfMonthsNumber * 2);
+      setBiWeeklyAmortization(biWeeklyAmortization);
+  
+      setLoanAmount(loanAmountNumber);
+      setLoanInterest(interestRateNumber);
+      setNoOfMonths(noOfMonthsNumber);
     }
+  }, [loanAmount, loanInterest, noOfMonths]);
   
-    // Get the current date
-    const currentDate = new Date();
-  
-    // Step 2: Calculate the difference in months between the current date and the start date
-    const yearDiff = currentDate.getFullYear() - startDate.getFullYear();
-    const monthDiff = currentDate.getMonth() - startDate.getMonth();
-    const dayDiff = currentDate.getDate() - startDate.getDate();
-  
-    let totalMonths = yearDiff * 12 + monthDiff;
-    if (dayDiff < 0) totalMonths -= 1; // Subtract one month if the current day is before the start date's day.
-  
-    return totalMonths; // The number of months passed since the start date
-  };
-  
-  const handleRecompute = async (loanId) => {
-    setCurrentLoanId(loanId);
-    setOpenReleaseModal(true);
-    
-    try{
-      const response = await fetch("http://localhost:5000/fetchLoanDetails", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loanId }),
-      });
-      const data = await response.json();
-      console.log(data);
-      setLoanValue(data.LoanAmount);
-      setStartOfPayment(data.releasedWhen);
-      setTotalAmount(data.TotalAmount);
-      setInterestRate(data.Interest);
-      setRunningBalanceRecompute(data.running_balance);
-      setBalanceRecompute(data.running_balance);
-      const monthsPassed = calculateMonthsDifference(data.releasedWhen);
-      let months;
-      if(monthsPassed === 0){
-        months = '';
-      }else{
-        months = monthsPassed;
-      }
-      setRecomputeDate(months);
-      const OldInterest = data.TotalAmount - data.LoanAmount;
-      setOldTotalInterest(OldInterest);
-    }catch(error){
-      console.error("Error recomputing:", error);
-      toast.error("An error occurred while recomputing.", { autoClose: 2000, containerId: 'main-toast' });
-    }
 
-  };
-  const handleDateChange = (e) => {
-    // Get the new value
-    const value = e.target.value;
+ const handleSubmitLoanApplication = async () => {
+  const loanDate = new Date();
+  // Make sure the variables are correctly set
+  console.log("Loan Amount:", loanAmount);
+  console.log("Interest Rate:", loanInterest);
+  console.log("No. of Months:", noOfMonths);
+  console.log("Total Amount:", total);
+  console.log("Bi-Weekly Amortization:", biWeeklyAmortization);
 
-    // Check if the value is a number and greater than 0
-    if (value > 0) {
-      setRecomputeDate(value);  // Update the state if the value is positive
+  try {
+    const response = await fetch('http://localhost:5000/submit-loan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json', // Ensure this header is set for JSON data
+      },
+      body: JSON.stringify({
+        OldloanId: currentLoanId,
+        loanAmount,
+        loanInterest,
+        noOfMonths,
+        loanDate,
+        total: total,  // Send total amount calculated
+        biWeeklyAmortization: biWeeklyAmortization.toFixed(2),  // Send the bi-weekly amortization
+      }),
+    });
+
+    if (response.ok) {
+      toast.success('Loan application submitted successfully', { autoClose: 2000, containerId: "main-toast" });
+    } else {
+      toast.error('Error submitting loan application', { autoClose: 2000, containerId: "main-toast" });
     }
-  };
-  const computeRecompute = () => {
-    let InterestValue = loanValue * (interestRate / 100); //Calculate the Monthly Interest
-    let TotalInterest = InterestValue * recomputeDate; //Calculate the Total Interest
-    let loanAmountWithInterest = loanValue + TotalInterest; //Calculate the Loan Amount with Interest
-    let recomputedAmount =  totalAmount - runningBalanceRecompute; //Calculate the total paid amount
-    let newRecomputedAmount =loanAmountWithInterest- recomputedAmount; //Calculate the remaining amount to be paid
-    let rebateAmount = totalAmount - loanAmountWithInterest; //Calculate the rebate amount
-    console.log(InterestValue, TotalInterest, loanAmountWithInterest, recomputedAmount, newRecomputedAmount);
-    setRecomputedAmount(newRecomputedAmount);
-    setOpenRecomputeModal(true);
-    setRecomputeInterestValue(TotalInterest);
-    setRebateAmount(rebateAmount);
+  } catch (error) {
+    console.error('Error submitting loan application:', error);
   }
-  const isDueToday = (dueDate) => {
-    const today = new Date();
-    const due = new Date(dueDate);
-    return today.setHours(0, 0, 0, 0) === due.setHours(0, 0, 0, 0); // Compare dates only (ignores time)
-  };
-  
-  const isPassedDue = (dueDate) => {
-    const today = new Date();
-    const due = new Date(dueDate);
-    return today > due; // Checks if today is after the due date (without time)
-  };
-  const filteredLoans = loans.filter((loan) => {
-    return (
-      loan.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      loan.customer.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
+};
 
   return (
     <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
@@ -276,7 +195,7 @@ export default function OrderList() {
         onChange={(e) => setSearchQuery(e.target.value)}
         sx={{ flexGrow: 1, marginBottom: 3}}
       />
-      {getFilteredLoans().map((loan) => (  
+      {filteredLoans.map((loan) => (  
         <List key={loan.id} size="sm" sx={{ '--ListItem-paddingX': 0 }}>
           <ListItem
              sx={{
@@ -307,101 +226,114 @@ export default function OrderList() {
                   </Typography>
                   </Box>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Button variant='soft' color='primary'size="sm"  
-                  sx={{ whiteSpace: 'nowrap', color: 'primary' }}
-                  onClick={() => handleRecompute(loan.id, loan.amount, loan.biWeeklyPay)}
-                  >
-                      Recompute
-                  </Button>
-                  <Button variant='soft' color='success' size="sm"  
-                  sx={{ whiteSpace: 'nowrap', color: 'primary' }}
-                  onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
-                  >
-                    Make Payment
-                  </Button>
+
+                <Box sx={{ display: 'flex',flexDirection:'column', gap: 1 }}>
+                  <Typography level="body-xs">Loan Amount:
+                      <Typography level="body-xs" sx={{fontWeight:'bold', marginLeft:1}}><span>&#8369;</span>{loan.loanAmount}</Typography>
+                  </Typography>
                 </Box>
+
+                <Box sx={{ display: 'flex',flexDirection:'column', gap: 1 }}>
+                  <Typography level="body-xs">Interest Rate:
+                      <Typography level="body-xs" sx={{fontWeight:'bold', marginLeft:1}}>{loan.loanInterest ? loan.loanInterest : 1}%</Typography>
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex',flexDirection:'column', gap: 1 }}>
+                  <Typography level="body-xs">Total Amount Paid:
+                      <Typography level="body-xs" sx={{fontWeight:'bold', marginLeft:1}}><span>&#8369;</span>{loan.totalAmountPaid}</Typography>
+                  </Typography>
+                </Box>
+
+
               </div>
             </ListItemContent>
-            {isDueToday(loan.dueDate) ? (
-              <Chip label="Due Today" variant="soft" color="warning" endDecorator={<TbCalendarDue />}>
-                <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                  Due Today
-                </Typography>
-              </Chip>
-            ) : isPassedDue(loan.dueDate) ? (
-              <Chip label="Passed Due" variant="soft" color="error" endDecorator={<TbCalendarDue />}>
-                <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                  Passed Due
-                </Typography>
-              </Chip>
-            ) : (
-              <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-               Due On {formatDate(loan.dueDate)}
-              </Typography>
-            )}
+            <Stack direction={'column'} spacing={5}>
+            <Chip variant='soft' color='success' size='sm' sx={{cursor: 'pointer'}}>
+            Paid On {formatDate(loan.fullyPaidAt)}
+            </Chip>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'right', gap: 1, mb: 1 }}>
+              <Button variant='soft' color='primary' size='sm'
+                sx={{cursor: 'pointer'}} 
+                onClick={(event) => {
+                  handleClick(loan.id, event);
+                }}
+              >
+                Options
+              </Button>
+            </Box>
+            <Menu
+              anchorEl={anchorEl}
+              open={openMenu}
+              onClose={handleClose}
+              placement="bottom-end"
+            >
+              <MenuItem onClick={handleViewLoanDetails}>View Loan Details</MenuItem>
+              <MenuItem onClick={handleRequestLoan}>Request Loan</MenuItem>
+            </Menu>
+            </Stack>
           </ListItem>
           <ListDivider />
         </List>
       ))}
-
-<Modal open={open} onClose={() => setOpen(false)}>
+      <Modal open={open} onClose={() => setOpen(false)}>
         <ModalDialog>
-          <DialogTitle>Loan Payment</DialogTitle>
+          <DialogTitle>Loan Application</DialogTitle>
           <Divider />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div>
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleMakePayment();
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleSubmitLoanApplication();
               }}
-              style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
             >
-              <Typography>Running Balance</Typography>
-              <Input
-                label="Running Balance"
-                variant="outlined"
-                startDecorator={<span>&#8369;</span>}
-                value={runningBalance ?? '0'} // Ensure it's always a string
-                onChange={(e) => setRunningBalance(e.target.value)}
-                readOnly
-              />
-              <Box>
-                {/* Bi-Weekly Payment Section */}
-                <Typography>Bi-Weekly Payment</Typography>
-                <Box sx={{ display: "flex", flexDirection: "row", gap: "10px" }}>
-                  <Input
-                    label="Payment Amount"
-                    variant="outlined"
-                    type='number'
-                    value={isBiWeekly ? biWeeklyPay : ""}  // Only show biWeeklyPay if isBiWeekly is true
-                    onChange={(e) => setBiWeeklyPay(e.target.value)}
-                    startDecorator={<span>&#8369;</span>}
-                    readOnly
-                  />
-                  <Switch checked={isBiWeekly} onChange={handleBiWeeklyToggle} />
-                </Box>
-
-                {/* Custom Payment Section */}
-                <Typography>Custom Payment</Typography>
-                <Box sx={{ display: "flex", flexDirection: "row", gap: "10px" }}>
-                  <Input
-                    label="Custom Payment"
-                    variant="outlined"
-                    type="number"
-                    startDecorator={<span>&#8369;</span>}
-                    value={isCustom ? customAmount : '0'} // Only show customAmount if isCustom is true
-                    onChange={(e) => setCustomAmount(e.target.value)}
-                    disabled={!isCustom}
-                  />
-                  <Switch checked={isCustom} onChange={handleCustomToggle} />
-                </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '5px', mb: 2 }}>
+                <Typography>Loan Amount</Typography>
+                <Input
+                  placeholder='Loan Amount'
+                  type='number'
+                  startDecorator={<span>&#8369;</span>}
+                  value={loanAmount}
+                  onChange={(event) => setLoanAmount(event.target.value)}
+                />
               </Box>
 
-              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                <Button variant="outlined" color="success" type="submit">
-                  Make Payment
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '5px', mb: 2 }}>
+                <Typography>Interest Rate (in %)/Month</Typography>
+                <Input
+                  placeholder='Interest Rate'
+                  type='number'
+                  value={loanInterest}
+                  readOnly
+                  onChange={(event) => setLoanInterest(event.target.value)}
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '5px', mb: 2 }}>
+                <Typography>No. of Months</Typography>
+                <Input
+                  placeholder='No. of Months'
+                  type='number'
+                  value={noOfMonths}
+                  onChange={(event) => setNoOfMonths(event.target.value)}
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '5px', mb: 2 }}>
+                <Typography>Total Amount</Typography>
+                <Input
+                  placeholder='Total Amount'
+                  type='number'
+                  startDecorator={<span>&#8369;</span>}
+                  readOnly
+                  value={total}
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
+                <Button variant='outlined' color='danger' onClick={() => setOpen(false)}>
+                  Cancel
                 </Button>
+                <Button type='submit'>Submit</Button>
               </Box>
             </form>
           </div>
@@ -415,168 +347,57 @@ export default function OrderList() {
           aria-labelledby="nested-modal-title"
           aria-describedby="nested-modal-description"
           sx={{
-            maxWidth: 400,
+            maxWidth: 600,
             p: 3,
-            borderRadius: 2,
+            borderRadius: 10,
             bgcolor: 'background.paper',
             boxShadow: 3,
+            overflowY: 'auto',
           }}
         >
-          {/* Loan Details */}
           <Typography id="nested-modal-title" variant="h5" fontWeight="bold" gutterBottom>
             Loan Details
           </Typography>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              computeRecompute();
-            }}
-          >
-              <Stack spacing={1} mb={2}>
-                <Box>
-                <Typography variant="body1">Loan Reference Number:</Typography>
-                <Input
-                  label="Loan Reference Number"
-                  variant="outlined"
-                  value={currentLoanId}
-                  onChange={(e) => setCurrentLoanId(e.target.value)}
-                  sx={{ width: '100%', padding: '5px 10px' }}
-                  readOnly
-                >
-                </Input>
-                </Box>
-                <Box>
-                  <Typography variant="body1">Principal Amount</Typography>
-                  <Input
-                    label="Principal Amount"
-                    variant="outlined"
-                    startDecorator={<span>&#8369;</span>}
-                    value={loanValue}
-                    readOnly
-                  />
-                </Box>
-                <Box>
-                  <Typography variant="body1">Interest Rate/Month</Typography>
-                  <Input
-                    label="Interest Rate"
-                    variant="outlined"
-                    type="number"
-                    startDecorator={<span>%</span>}
-                    value={interestRate}
-                    onChange={(e) => setInterestRate(e.target.value)}
-                    sx={{ width: '100%', padding: '5px 10px' }}
-                  />
-                </Box>
-              <Box>
-              <Typography variant="body1">Total Amount</Typography>
-              <Input
-                    label="Total Amount"
-                    variant="outlined"
-                    startDecorator={<span>&#8369;</span>}
-                    value={totalAmount}
-                    readOnly
-                  />
-              </Box>
-              <Box>
-                <Typography variant="body1">Loan Issuance Date</Typography>
-                <Input
-                label="Loan Issuance Date"
-                variant="outlined"
-                value={formatDate(startOfPayment)}
-                readOnly
-                >
-                </Input>
-              </Box>
-              <Box>
-                <Typography variant="body1">Payment Months (Paid + Due)</Typography>
-                <Input
-                label="Months Passed"
-                variant="outlined"
-                value={recomputeDate}
-                type='number'
-                step={1}
-                onChange={handleDateChange}
-                readOnly={recomputeDate === '' ? true : false}
-                />
-              </Box>
-            </Stack>
-            {/* Buttons */}
-            <Stack direction="row" justifyContent="center" spacing={1}>
-              <Button variant="outlined" color="danger" onClick={() => setOpenReleaseModal(false)}>
-                Cancel
-              </Button>
-              <Button variant="outlined" type="submit" color="primary" onClick={() => setOpenRecomputeModal(true)}>
-                Recompute
-              </Button>
-            </Stack>
-          </form>
-        </ModalDialog>
-      </Modal>
-
-      <Modal open={openRecomputeModal} onClose={() => setOpenRecomputeModal(false)}>
-        <ModalDialog>
-          <Box
-            sx={{
-              width: '100%',
-              maxWidth: 400,
-              margin: '0 auto',
-              padding: '16px',
-              border: '1px solid #ccc',
-              borderRadius: '8px',
-              backgroundColor: '#f9f9f9',
-              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-              fontFamily: 'Arial, sans-serif',
-            }}
-          >
-            <Typography variant="h6" align="center" sx={{ marginBottom: '16px', fontWeight: 'bold' }}>
-              Recomputation Breakdown
-            </Typography>
-
-            <Stack direction="column" spacing={2}>
-              {/* Interest Value Section */}
-              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-                <Typography variant="body1">Old Interest Value:</Typography>
-                <Typography variant="body1">₱ {oldTotalInterest}</Typography>
-              </Box>
-
-              {/* Total Interest */}
-              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-                <Typography variant="body1">Running Balance:</Typography>
-                <Typography variant="body1">₱ {BalanceRecompute}</Typography>
-              </Box>
-
-              {/* Loan Amount with Interest */}
-              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-                <Typography variant="body1">Recomputed Interest Value:</Typography>
-                <Typography variant="body1">₱ {recomputeInterestValue}</Typography>
-              </Box>
-
-              {/* Recomputed Amount */}
-              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-                <Typography variant="body1">Recomputed Loan Amount:</Typography>
-                <Typography variant="body1">₱ {recomputedAmount}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex',flexDirection:'column', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #ddd' }}>
-                <Typography variant="body1">Rebate Amount:</Typography>
-                <Typography variant="body1">₱ {rebateAmount}</Typography>
-              </Box>
-            </Stack>
-          </Box>
-          <Divider />
-          <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', justifyContent: 'center' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Button variant="outlined" color="danger" onClick={() => setOpenRecomputeModal(false)}>
-                Cancel
-              </Button>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Button variant="outlined" color="success" onClick={() => setOpenRecomputeModal(false)}>
-                Make Payment
-              </Button>
-            </Box>
+          <Divider sx={{ mb: 2 }} />
+          {/* Loan Payments Table */}
+          <Typography variant="h6" sx={{ mb: 1 }}>Loan Payments</Typography>
+          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+            <table style={{ marginBottom: '16px', width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+              <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
+                <tr>
+                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Date From</th>
+                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Date To</th>
+                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loanPayments.map((payment, index) => (
+                  <tr key={index}>
+                    <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{formatDate(payment.PaymentDateFrom)}</td>
+                    <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{formatDate(payment.PaymentDateTo)}</td>
+                    <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}><span>&#8369;</span> {payment.PaymentAmount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </ModalDialog>
 
+          {/* Display Approvers as a list below the table */}
+          {loanApprovers.length > 0 && (
+            <div sx={{ mb: 2, height: '100px', overflowY: 'auto', maxHeight: '100px' }}>
+              <Typography variant="h6" >Loan Approvers:</Typography>
+              <ul style={{listStyleType: 'disc', padding: 2, marginLeft: 20}}>
+                {loanApprovers.map((approver, index) => (
+                  <li key={index} sx={{ fontWeight: 'bold'}}>{approver.approver_name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Released By */}
+          <Typography variant="h6" >Released By:</Typography>
+          <Typography sx={{fontWeight: 'bold'}}>{releasedBy ? releasedBy[0].releasedBy : "N/A"}</Typography>
+        </ModalDialog>
       </Modal>
     </Box>
   );

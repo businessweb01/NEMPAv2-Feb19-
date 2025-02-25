@@ -42,6 +42,7 @@ export default function OrderTable() {
   const [oldTotalInterest, setOldTotalInterest] = useState('0');
   const [BalanceRecompute, setBalanceRecompute] = useState('0');
   const [rebateAmount, setRebateAmount] = useState('0');
+  const [totalPayments, setTotalPayments] = useState('0');
   // Fetch Pending Loans
   const fetchLoans = useCallback(async () => {
     try {
@@ -200,12 +201,13 @@ export default function OrderTable() {
       const data = await response.json();
       console.log(data);
       setLoanValue(data.LoanAmount);
-      setStartOfPayment(data.releasedWhen);
+      setStartOfPayment(data.PaymentStartAt);
       setTotalAmount(data.TotalAmount);
       setInterestRate(data.Interest);
       setRunningBalanceRecompute(data.running_balance);
       setBalanceRecompute(data.running_balance);
-      const monthsPassed = calculateMonthsDifference(data.releasedWhen);
+      setTotalPayments(data.TotalPayments);
+      const monthsPassed = calculateMonthsDifference(data.PaymentStartAt);
       let months;
       if(monthsPassed === 0){
         months = '';
@@ -234,10 +236,8 @@ export default function OrderTable() {
     let InterestValue = loanValue * (interestRate / 100); //Calculate the Monthly Interest
     let TotalInterest = InterestValue * recomputeDate; //Calculate the Total Interest
     let loanAmountWithInterest = loanValue + TotalInterest; //Calculate the Loan Amount with Interest
-    let recomputedAmount =  totalAmount - runningBalanceRecompute; //Calculate the total paid amount
-    let newRecomputedAmount =loanAmountWithInterest- recomputedAmount; //Calculate the remaining amount to be paid
+    let newRecomputedAmount =loanAmountWithInterest - totalPayments; //Calculate the remaining amount to be paid
     let rebateAmount = totalAmount - loanAmountWithInterest; //Calculate the rebate amount
-    console.log(InterestValue, TotalInterest, loanAmountWithInterest, recomputedAmount, newRecomputedAmount);
     setRecomputedAmount(newRecomputedAmount);
     setOpenRecomputeModal(true);
     setRecomputeInterestValue(TotalInterest);
@@ -255,6 +255,30 @@ export default function OrderTable() {
     return today > due; // Checks if today is after the due date (without time)
   };
 
+  const handleRecomputeSubmit = async (loanId) => {
+    setCurrentLoanId(loanId);
+    setOpenRecomputeModal(true);
+    const dateNow = new Date().toISOString().split("T")[0];
+    const status = 'Recomputed';
+    const balance = 0;
+    try{
+      const response = await fetch("http://localhost:5000/PayRecomputedLoan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loanId, recomputedAmount, recomputeInterestValue, recomputeDate, dateNow, status, balance, startOfPayment})
+      });
+      const data = await response.json();
+      if(response.ok){
+        toast.success(data.message || "Recomputed successfully!", { autoClose: 2000, containerId: 'main-toast' });
+        fetchLoans();
+      }else{
+        toast.error(data.message || "An error occurred while recomputing.", { autoClose: 2000, containerId: 'main-toast' });
+      }
+    }catch(error){
+      console.error("Error recomputing:", error);
+      toast.error("An error occurred while recomputing.", { autoClose: 2000, containerId: 'main-toast' });
+    }
+  }
   return (
     <React.Fragment>
       <ToastContainer 
