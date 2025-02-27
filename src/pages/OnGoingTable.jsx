@@ -30,7 +30,7 @@ export default function OrderTable() {
   const [customAmount, setCustomAmount] = useState('0');
   const [isBiWeekly, setIsBiWeekly] = useState(true); 
   const [isCustom, setIsCustom] = useState(false);
-  const [recomputeDate, setRecomputeDate] = useState('');
+  const [recomputeDate, setRecomputeDate] = useState(value => value < 0 ? 0 : value || '');
   const [startOfPayment, setStartOfPayment] = useState('');
   const[recomputedAmount, setRecomputedAmount] = useState('0');
   const[loanValue, setLoanValue] = useState('0');
@@ -43,6 +43,7 @@ export default function OrderTable() {
   const [BalanceRecompute, setBalanceRecompute] = useState('0');
   const [rebateAmount, setRebateAmount] = useState('0');
   const [totalPayments, setTotalPayments] = useState('0');
+  const [interestAmount, setInterestAmount] = useState('0');
   // Fetch Pending Loans
   const fetchLoans = useCallback(async () => {
     try {
@@ -207,6 +208,7 @@ export default function OrderTable() {
       setRunningBalanceRecompute(data.running_balance);
       setBalanceRecompute(data.running_balance);
       setTotalPayments(data.TotalPayments);
+      setInterestAmount(data.interest_Amount);
       const monthsPassed = calculateMonthsDifference(data.PaymentStartAt);
       let months;
       if(monthsPassed === 0){
@@ -228,21 +230,34 @@ export default function OrderTable() {
     const value = e.target.value;
 
     // Check if the value is a number and greater than 0
-    if (value > 0) {
-      setRecomputeDate(value);  // Update the state if the value is positive
+    if (value < 0) {
+      setRecomputeDate(0);  // Update the state if the value is positive
+    }else{
+      setRecomputeDate(value);
     }
   };
   const computeRecompute = () => {
-    let InterestValue = loanValue * (interestRate / 100); //Calculate the Monthly Interest
-    let TotalInterest = InterestValue * recomputeDate; //Calculate the Total Interest
-    let loanAmountWithInterest = loanValue + TotalInterest; //Calculate the Loan Amount with Interest
-    let newRecomputedAmount =loanAmountWithInterest - totalPayments; //Calculate the remaining amount to be paid
-    let rebateAmount = totalAmount - loanAmountWithInterest; //Calculate the rebate amount
-    setRecomputedAmount(newRecomputedAmount);
+    let daterecomputed;
+    if(recomputeDate === 0 || recomputeDate < 0 ){
+      daterecomputed = 0;
+      setRecomputedAmount(runningBalanceRecompute); // Fixed variable name
+      setRebateAmount(0);
+      setRecomputeInterestValue(interestAmount);
+    }else{
+      daterecomputed = recomputeDate;
+      let InterestValue = loanValue * (interestRate / 100); //Calculate the Monthly Interest
+      let TotalInterest = InterestValue * daterecomputed; //Calculate the Total Interest
+      let loanAmountWithInterest = loanValue + TotalInterest; //Calculate the Loan Amount with Interest
+      let newRecomputedAmount = loanAmountWithInterest - totalPayments; //Calculate the remaining amount to be paid
+      let rebateAmount = totalAmount - loanAmountWithInterest; //Calculate the rebate amount
+      
+      setRecomputedAmount(newRecomputedAmount);
+      setRecomputeInterestValue(TotalInterest);
+      setRebateAmount(rebateAmount);
+    }
     setOpenRecomputeModal(true);
-    setRecomputeInterestValue(TotalInterest);
-    setRebateAmount(rebateAmount);
   }
+
   const isDueToday = (dueDate) => {
     const today = new Date();
     const due = new Date(dueDate);
@@ -261,11 +276,19 @@ export default function OrderTable() {
     const dateNow = new Date().toISOString().split("T")[0];
     const status = 'Recomputed';
     const balance = 0;
+    let daterecomputed;
+    if(recomputeDate <= 0){
+      daterecomputed = 0;
+      toast.error("Recomputation of the first payment is not permitted.", { autoClose: 2000, containerId: 'main-toast' });
+      return;
+    }else{
+      daterecomputed = recomputeDate;
+    }
     try{
       const response = await fetch("http://localhost:5000/PayRecomputedLoan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loanId, recomputedAmount, recomputeInterestValue, recomputeDate, dateNow, status, balance, startOfPayment})
+        body: JSON.stringify({ loanId, recomputedAmount, recomputeInterestValue, dateNow, status, balance, startOfPayment, daterecomputed})
       });
       const data = await response.json();
       if(response.ok){
@@ -368,67 +391,78 @@ export default function OrderTable() {
             </thead>
             <tbody>
               {filteredLoans.length > 0 ? (
-                filteredLoans.map((loan) => (
-                  <tr key={loan.id} sx={{ cursor: 'pointer' }}>
-                    <td style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.id}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.amount}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.biWeeklyPay}</Typography>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.customer.name}</Typography>
-                      </Box>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {isDueToday(loan.dueDate) ? (
-                        <Chip label="Due Today" variant="soft" color="warning" endDecorator={<TbCalendarDue />}>
+                [...filteredLoans]
+                  .sort((a, b) => {
+                    // Sort by due date status
+                    const aIsDueToday = isDueToday(a.dueDate);
+                    const bIsDueToday = isDueToday(b.dueDate); 
+                    
+                    if (aIsDueToday && !bIsDueToday) return -1;
+                    if (!aIsDueToday && bIsDueToday) return 1;
+                    return 0;
+                  })
+                  .map((loan) => (
+                    <tr key={loan.id} sx={{ cursor: 'pointer' }}>
+                      <td style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.id}</Typography>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.amount}</Typography>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}><span>&#8369;</span>{loan.biWeeklyPay}</Typography>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                          <Typography level="body-xs" sx={{ cursor: 'pointer' }}>{loan.customer.name}</Typography>
+                        </Box>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {isDueToday(loan.dueDate) ? (
+                          <Chip label="Due Today" variant="soft" color="warning" endDecorator={<TbCalendarDue />}>
+                            <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
+                              Due Today
+                            </Typography>
+                          </Chip>
+                        ) : isPassedDue(loan.dueDate) ? (
+                          <Chip label="Passed Due" variant="soft" color="danger" endDecorator={<TbCalendarDue />}>
+                            <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
+                              Passed Due
+                            </Typography>
+                          </Chip>
+                        ) : (
                           <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                            Due Today
+                            {formatDate(loan.dueDate)}
                           </Typography>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <Chip
+                          variant="soft"
+                          size="sm"
+                          endDecorator={<PaymentsIcon />}
+                          color="success"
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
+                          disabled={!isDueToday(loan.dueDate)} // Disable if not due today
+                        >
+                          Make Payment
                         </Chip>
-                      ) : isPassedDue(loan.dueDate) ? (
-                        <Chip label="Passed Due" variant="soft" color="danger" endDecorator={<TbCalendarDue />}>
-                          <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                            Passed Due
-                          </Typography>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <Chip
+                          variant="soft"
+                          size="sm"
+                          endDecorator={<FaCalculator />}
+                          color="primary"
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => handleRecompute(loan.id, loan.amount, loan.biWeeklyPay)}
+                        >
+                          Recompute
                         </Chip>
-                      ) : (
-                        <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-                          {formatDate(loan.dueDate)}
-                        </Typography>
-                      )}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Chip
-                        variant="soft"
-                        size="sm"
-                        endDecorator={<PaymentsIcon />}
-                        color="success"
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
-                      >
-                        Make Payment
-                      </Chip>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <Chip
-                        variant="soft"
-                        size="sm"
-                        endDecorator={<FaCalculator />}
-                        color="primary"
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => handleRecompute(loan.id, loan.amount, loan.biWeeklyPay)}
-                      >
-                        Recompute
-                      </Chip>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  ))
               ) : (
                 <tr>
                   <td colSpan="7" style={{ textAlign: 'center' }}>
@@ -588,7 +622,7 @@ export default function OrderTable() {
                 <Input
                 label="Months Passed"
                 variant="outlined"
-                value={recomputeDate}
+                value={recomputeDate < 0 ? 0 : recomputeDate}
                 type='number'
                 step={1}
                 onChange={handleDateChange}
@@ -666,7 +700,7 @@ export default function OrderTable() {
               </Button>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Button variant="outlined" color="success" onClick={() => setOpenRecomputeModal(false)}>
+              <Button variant="outlined" color="success" onClick={() => handleRecomputeSubmit(currentLoanId)}>
                 Make Payment
               </Button>
             </Box>

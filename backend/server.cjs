@@ -7,6 +7,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config({ path: '../.env.development' }); // Load .env file
 const jwtDecode = require('jwt-decode');
+const bcrypt = require('bcryptjs'); 
 // Set up express app
 const app = express();
 const port = 5000;
@@ -608,28 +609,39 @@ wss.on("connection", (ws) => {
       const pool = await mssql.connect(sqlConfig);
       const result = await pool.request().query(`
         SELECT 
-          (SELECT COUNT(*) FROM Loans WHERE status = 'Waiting for Approval') AS pendingCount,
-          (SELECT COUNT(*) FROM Loans WHERE status = 'Released') AS releasedCount
+          (SELECT COUNT(*) 
+           FROM Loans 
+           WHERE status = 'Waiting for Approval') AS pendingCount,
+  
+          -- Count the number of released loans where PaymentDateTo or PaymentStartAt is today
+          (SELECT COUNT(*) 
+           FROM Loans l
+           LEFT JOIN Payments p ON l.LoanRefNo = p.LoanRefNo
+           WHERE l.status = 'Released' 
+           AND (
+             CONVERT(DATE, ISNULL(p.PaymentDateTo, l.PaymentStartAt)) = CONVERT(DATE, GETDATE())
+           )
+          ) AS releasedCount
       `);
-
+  
       const counts = {
         type: "loanCounts",
         pendingCount: result.recordset[0].pendingCount,
         releasedCount: result.recordset[0].releasedCount,
       };
-
+  
       // Send updates to all connected clients
       clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(JSON.stringify(counts));
         }
       });
-
+  
     } catch (error) {
       console.error("Error fetching loan counts:", error);
     }
   };
-
+  
   // Send initial data when a client connects
   sendLoanCounts();
 
@@ -881,7 +893,7 @@ wss.on('connection', (ws) => {
             FORMAT(CAST(fullyPaidAt AS DATETIME), 'yyyy-MM') AS paymentMonth,
             SUM(interest_Amount) AS monthlyIncome
           FROM Loans
-          WHERE status IN ('Fully Paid', 'Fully Paid(Recomputed)') 
+          WHERE status IN ('Fully Paid', 'Recomputed') 
             AND fullyPaidAt IS NOT NULL
           GROUP BY FORMAT(CAST(fullyPaidAt AS DATETIME), 'yyyy-MM')
         `);
@@ -1116,121 +1128,287 @@ app.get('/FetchLoanDetails/:loanId', async (req, res) => {
 });
 
 /// Route to fetch all loan details
-app.get('/fetch-all-loan-details', (req, res) => {
-  // Query to fetch LoanRefNo, fullyPaidAt, totalAmountPaid, and status from the Loans table
-  const loanQuery = `
-    SELECT LoanRefNo, fullyPaidAt, totalAmountPaid, status, releasedBy 
-    FROM Loans 
-    WHERE status IN ('Released', 'Fully Paid', 'Fully Paid(Recomputed)');
-  `;
+app.get('/fetch-all-loan-details', async (req, res) => {
+  try {
+    // Query to fetch loan details including client_id
+    const loanQuery = `
+      SELECT l.LoanRefNo, l.fullyPaidAt, l.totalAmountPaid, l.status, l.releasedBy, l.client_id,
+             c.fname, c.lname
+      FROM Loans l
+      LEFT JOIN client_info c ON l.client_id = c.client_id
+      WHERE l.status IN ('Released', 'Fully Paid', 'Recomputed');
+    `;
 
-  pool.query(loanQuery, (err, result) => {
-      if (err) {
-          return res.status(500).json({ error: 'Failed to fetch loans' });
+    const result = await pool.request().query(loanQuery);
+    const loanRows = result.recordset;
+
+    if (!Array.isArray(loanRows)) {
+      return res.status(500).json({ error: 'Unexpected response structure from the database' });
+    }
+
+    if (loanRows.length === 0) {
+      return res.status(200).json({ message: 'No loans found' });
+    }
+
+    const loanRefNos = loanRows.map(row => row.LoanRefNo);
+
+    // Query to fetch payments
+    const paymentsQuery = `
+      SELECT LoanRefNo, PaymentAmount, PaymentDateTo 
+      FROM Payments 
+      WHERE LoanRefNo IN (${loanRefNos.map(refNo => `'${refNo}'`).join(', ')});
+    `;
+
+    const paymentResult = await pool.request().query(paymentsQuery);
+    const paymentRows = paymentResult.recordset;
+
+    // Combine the data into result
+    const combinedResult = loanRefNos.map(refNo => {
+      const loan = loanRows.find(loan => loan.LoanRefNo === refNo);
+      const payments = paymentRows.filter(payment => payment.LoanRefNo === refNo);
+
+      const latestPayment = payments.reduce((latest, current) => {
+        if (!latest || new Date(current.PaymentDateTo) > new Date(latest.PaymentDateTo)) {
+          return current;
+        }
+        return latest;
+      }, null);
+
+      let paymentDate = '';
+      let displayAmount = 0;
+
+      if (loan.status === 'Fully Paid' || loan.status === 'Fully Paid(Recomputed)') {
+        paymentDate = latestPayment?.PaymentDateTo || '';
+        displayAmount = loan.totalAmountPaid;
+      } else if (loan.status === 'Released') {
+        paymentDate = latestPayment?.PaymentDateTo || '';
+        displayAmount = payments.reduce((total, payment) => total + payment.PaymentAmount, 0);
       }
 
-      // Ensure you're accessing the recordset, not just the result object
-      const loanRows = result.recordset; // This will be an array of rows
+      return {
+        LoanRefNo: loan.LoanRefNo,
+        Status: loan.status,
+        TotalAmountPaid: loan.totalAmountPaid,
+        ReleasedBy: loan.releasedBy,
+        ClientId: loan.client_id,
+        ClientName: `${loan.fname} ${loan.lname}`,
+        Payments: payments.map(payment => ({
+          PaymentAmount: loan.status === 'Fully Paid' || loan.status === 'Fully Paid(Recomputed)' ? loan.totalAmountPaid : payment.PaymentAmount,
+          PaymentDate: payment.PaymentDateTo,
+        })),
+        DisplayAmount: displayAmount
+      };
+    });
 
-      if (!Array.isArray(loanRows)) {
-          return res.status(500).json({ error: 'Unexpected response structure from the database' });
-      }
+    res.status(200).json(combinedResult);
 
-      // Create an array of LoanRefNos
-      const loanRefNos = loanRows.map(row => row.LoanRefNo);
-
-      if (loanRefNos.length === 0) {
-          return res.status(200).json({ message: 'No loans found' });
-      }
-
-      // Query to fetch Payments based on LoanRefNos
-      const paymentsQuery = `
-          SELECT LoanRefNo, PaymentAmount, PaymentDateTo 
-          FROM Payments 
-          WHERE LoanRefNo IN (${loanRefNos.map(refNo => `'${refNo}'`).join(', ')});
-      `;
-
-      // Run the payments query to fetch payments
-      pool.query(paymentsQuery, (err, paymentResult) => {
-          if (err) {
-              return res.status(500).json({ error: 'Failed to fetch payments' });
-          }
-
-          const paymentRows = paymentResult.recordset;
-
-          // Combine the data into a result
-          const result = loanRefNos.map(refNo => {
-              const loan = loanRows.find(loan => loan.LoanRefNo === refNo);
-              const payments = paymentRows.filter(payment => payment.LoanRefNo === refNo);
-
-              // Determine the payment date based on loan status
-              let paymentDate = '';
-              let displayAmount = 0; // This will hold the amount to display based on status
-
-              if (loan.status === 'Fully Paid' || loan.status === 'Fully Paid(Recomputed)') {
-                  paymentDate = loan.fullyPaidAt; // Use fullyPaidAt for Fully Paid or Fully Paid(Recomputed)
-                  displayAmount = loan.totalAmountPaid; // Use totalAmountPaid for Fully Paid status
-              } else if (loan.status === 'Released') {
-                  paymentDate = payments[0]?.PaymentDateTo || ''; // Use PaymentDateTo for Released
-                  displayAmount = payments.reduce((total, payment) => total + payment.PaymentAmount, 0); // Sum all PaymentAmount for Released
-              }
-
-              return {
-                  LoanRefNo: loan.LoanRefNo,
-                  Status: loan.status,
-                  TotalAmountPaid: loan.totalAmountPaid,
-                  ReleasedBy: loan.releasedBy,
-                  Payments: payments.map(payment => ({
-                      PaymentAmount: loan.status === 'Fully Paid' || loan.status === 'Fully Paid(Recomputed)' ? loan.totalAmountPaid : payment.PaymentAmount,
-                      PaymentDate: paymentDate, // Use the determined payment date
-                  })),
-                  DisplayAmount: displayAmount // Add the display amount (either totalAmountPaid or PaymentAmount)
-              };
-          });
-
-          // Send the response back with the combined data
-          res.status(200).json(result);
-      });
-  });
+  } catch (err) {
+    console.error('Error fetching loan details:', err);
+    res.status(500).json({ error: 'Failed to fetch loan details' });
+  }
 });
 
 app.post('/PayRecomputedLoan', async (req, res) => {
-  const { loanId, recomputedAmount, recomputeInterestValue, recomputeDate, dateNow, status, balance, startOfPayment } = req.body;
-  console.log(req.body);
-  try{
+  const { loanId, recomputedAmount, recomputeInterestValue, daterecomputed, dateNow, status, balance, startOfPayment } = req.body;
+  
+  try {
     const pool = await mssql.connect(sqlConfig);
+
+    // Get next payment ID
+    const currentYear = new Date().getFullYear();
+    const paymentIdResult = await pool.request()
+      .input("currentYear", mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 PaymentID FROM Payments 
+        WHERE PaymentID LIKE '${currentYear}%' ORDER BY PaymentID DESC
+      `);
+
+    let nextSeries = 1;
+    if (paymentIdResult.recordset.length > 0) {
+      const lastPaymentID = paymentIdResult.recordset[0].PaymentID;
+      nextSeries = parseInt(lastPaymentID.slice(-6)) + 1;
+    }
+    const nextPaymentID = `${currentYear}${String(nextSeries).padStart(6, "0")}`;
+
+    // Insert into Payments table
     await pool.request()
+      .input('PaymentID', mssql.NVarChar, nextPaymentID)
+      .input('loanId', mssql.NVarChar, loanId)
+      .input('recomputedAmount', mssql.Float, recomputedAmount)
+      .input('startOfPayment', mssql.Date, startOfPayment)
+      .input('dateNow', mssql.Date, dateNow)
+      .query(`
+        INSERT INTO Payments (
+          PaymentID,
+          LoanRefNo,
+          PaymentAmount,
+          PaymentDateFrom,
+          PaymentDateTo,
+          NextPaymentDate
+        )
+        VALUES (
+          @PaymentID,
+          @loanId,
+          @recomputedAmount,
+          @startOfPayment,
+          @dateNow,
+          'Paid'
+        )
+      `);
+
+    // Get payment count
+    const countResult = await pool.request()
       .input('loanId', mssql.NVarChar, loanId)
       .query(`
-        SELECT l.*, 
-        (SELECT COUNT(*) FROM Payments WHERE LoanRefNo = @loanId) as PaymentCount
-        FROM Loans l 
-        WHERE l.LoanRefNo = @loanId
+        SELECT COUNT(*) as PaymentCount
+        FROM Payments 
+        WHERE LoanRefNo = @loanId
       `);
-      const paymentCount = result.recordset[0].PaymentCount;
 
-    const result = await pool.request()
+    const paymentCount = countResult.recordset[0].PaymentCount;
+    // Update Loans table
+    await pool.request()
       .input('loanId', mssql.NVarChar, loanId)
       .input('recomputedAmount', mssql.Float, recomputedAmount)
       .input('recomputeInterestValue', mssql.Float, recomputeInterestValue)
-      .input('recomputeDate', mssql.Date, recomputeDate)
+      .input('daterecomputed', mssql.Date, daterecomputed)
       .input('dateNow', mssql.Date, dateNow)
       .input('status', mssql.VarChar, status)
       .input('balance', mssql.Float, balance)
+      .input('paymentCount', mssql.Int, paymentCount)
+      .input('no_of_months', mssql.Int, daterecomputed)
       .query(`
         UPDATE Loans
-        SET status = @status, running_balance = @balance, fullyPaidAt = @dateNow, totalAmountPaid = @recomputedAmount, interest_Amount = @recomputeInterestValue
+        SET status = @status, 
+            running_balance = @balance, 
+            fullyPaidAt = @dateNow, 
+            totalAmountPaid = @recomputedAmount, 
+            interest_Amount = @recomputeInterestValue,
+            no_of_terms = @paymentCount,
+            NoOfMonths = @no_of_months
+        WHERE LoanRefNo = @loanId
       `);
-  }catch(error){
+      await pool.request()
+      .input("paymentAmount", mssql.Float, recomputedAmount)
+      .query(`
+        UPDATE coop_balance
+        SET remaining_Bal = remaining_Bal + @paymentAmount
+      `);
+      await pool.request()
+      .input("paymentAmount", mssql.Float, recomputedAmount)
+      .query(`
+        UPDATE coop_balance 
+        SET used_Bal = CASE
+          WHEN used_Bal - @paymentAmount < 0 THEN 0
+          ELSE used_Bal - @paymentAmount
+        END
+      `);
+
+    res.status(200).json({ message: 'Loan recomputed successfully', paymentCount });
+
+  } catch(error) {
     console.error("Error recomputing:", error);
     res.status(500).json({ message: 'Error recomputing.' });
   }
 });
 
+app.get('/getBalance', async (req, res) => {
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const result = await pool.request().query('SELECT remaining_Bal, used_Bal FROM coop_balance');
 
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'No balance data found' });
+    }
+    // Return only the required columns
+    const balanceData = result.recordset[0];
+    res.status(200).json({
+      remaining_Bal: balanceData.remaining_Bal,
+      used_Bal: balanceData.used_Bal,
+    });
+  } catch (error) {
+    console.error("Database error:", error);
+    res.status(500).json({ message: 'Error retrieving balance data' });
+  }
+});
 
+app.post('/updateBalance', async (req, res) => {
+  const { availableBalance, usedBalance, password } = req.body;
 
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    
+    // Query to fetch the hashed password from the 'coop_password' table
+    const result = await pool.request().query('SELECT password FROM coop_password');  // Assuming you have only one password entry or use the appropriate ID
 
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Password not found in database' });
+    }
+
+    const hashedPassword = result.recordset[0].password;
+
+    // Compare the entered password with the stored hashed password using bcrypt
+    const isMatch = await bcrypt.compare(password, hashedPassword);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid password' });
+    }
+
+    // Proceed to update the balance if password is correct
+    await pool.request()
+      .input('availableBalance', mssql.Float, availableBalance)
+      .input('usedBalance', mssql.Float, usedBalance)
+      .query(
+        `UPDATE coop_balance 
+        SET remaining_Bal = @availableBalance, 
+        used_Bal = @usedBalance`
+      );
+
+    res.status(200).json({ message: 'Balance updated successfully' });
+
+  } catch (error) {
+    console.error("Database error:", error);
+    res.status(500).json({ message: 'Error updating balance' });
+  }
+});
+
+app.post('/create-coop-account', async (req, res) => {
+  const { name, lastName, email, password, regDate } = req.body;
+
+  try {
+    const pool = await mssql.connect(sqlConfig);
+    const currentYear = new Date().getFullYear();
+    const paymentIdResult = await pool.request()
+      .input("currentYear", mssql.Int, currentYear)
+      .query(`
+        SELECT TOP 1 admin_Id FROM nempa_Admin 
+        WHERE admin_Id LIKE '${currentYear}%' ORDER BY admin_Id DESC
+      `);
+
+    let nextSeries = 1;
+    if (paymentIdResult.recordset.length > 0) {
+      const lastPaymentID = paymentIdResult.recordset[0].admin_Id;
+      nextSeries = parseInt(lastPaymentID.slice(-4)) + 1;
+    }
+    const admin_Id = `${currentYear}${String(nextSeries).padStart(4, "0")}`;
+    await pool.request()
+      .input('admin_Id', mssql.VarChar, admin_Id)
+      .input('name', mssql.VarChar, name)
+      .input('lastName', mssql.VarChar, lastName)
+      .input('email', mssql.VarChar, email)
+      .input('password', mssql.VarChar, password)
+      .input('regDate', mssql.Date, regDate)
+      .query(`
+        INSERT INTO nempa_Admin (admin_Id, fname, lname, email, password, registration_Date)
+        VALUES (@admin_Id, @name, @lastName, @email, @password, @regDate)
+      `);
+
+    res.status(200).json({ message: 'Coop account created successfully' });
+  } catch (error) {
+    console.error("Database error:", error);
+    res.status(500).json({ message: 'Error creating coop account' });
+  }
+});
 // Start the server
 app.listen(port, async () => {
   await connectToDatabase(); // Ensure database is connected before accepting requests

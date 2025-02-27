@@ -13,28 +13,50 @@ const TransactionHistory = () => {
             try {
                 const response = await fetch('http://localhost:5000/fetch-all-loan-details');
                 const data = await response.json();
-                setLoanData(data);
+    
+                // Check if the returned data is an array
+                if (Array.isArray(data)) {
+                    setLoanData(data);
+                } else {
+                    console.error('Expected an array but got:', data);
+                    setLoanData([]); // Fallback to empty array if not an array
+                }
+    
                 console.log(data);
             } catch (error) {
                 console.error('Error fetching loan details:', error);
+                setLoanData([]); // Ensure loanData is always an array
             }
         }
-
+    
         fetchLoanDetails();
     }, []);
 
+    const formatDate = (loanDate) => {
+        const date = new Date(loanDate); // Convert the string to a Date object
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        return date.toLocaleDateString('en-US', options); // Format the date as 'Feb 17 2025'
+      };
+
     const filteredLoanData = useCallback(() => {
-        return loanData.filter(loan =>
+    return Array.isArray(loanData) 
+        ? loanData.filter(loan =>
             loan.LoanRefNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            loan.ReleasedBy.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+            loan.ReleasedBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            loan.ClientName.toLowerCase().includes(searchTerm.toLowerCase())
+        ).sort((a, b) => {
+            const latestDateA = Math.max(...a.Payments.map(p => new Date(p.PaymentDate)));
+            const latestDateB = Math.max(...b.Payments.map(p => new Date(p.PaymentDate)));
+            return latestDateB - latestDateA;
+        })
+        : []; // Ensure we handle the case where loanData is not an array
     }, [loanData, searchTerm]);
 
     const renderMobileView = useCallback(() => (
         <>
             <Box sx={{ mb: 2 }}>
                 <TextField
-                    placeholder="Search by reference number or released by..."
+                    placeholder="Search by reference number or released by or client name..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     fullWidth
@@ -51,7 +73,8 @@ const TransactionHistory = () => {
             <List sx={{ p: 0 }}>
                 {filteredLoanData().length > 0 ? (
                     filteredLoanData().flatMap(loan =>
-                        loan.Payments.map((payment, index) => (
+                        [...loan.Payments].sort((a, b) => new Date(b.PaymentDate) - new Date(a.PaymentDate))
+                        .map((payment, index) => (
                             <ListItem
                                 key={`${loan.LoanRefNo}-${index}`}
                                 sx={{
@@ -75,7 +98,7 @@ const TransactionHistory = () => {
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: 'column' }}>
                                     <Typography variant="body2" color="text.secondary">Payment Date:</Typography>
-                                    <Typography>{payment.PaymentDate}</Typography>
+                                    <Typography>{formatDate(payment.PaymentDate)}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: 'column' }}>
                                     <Typography variant="body2" color="text.secondary">Status:</Typography>
@@ -85,15 +108,20 @@ const TransactionHistory = () => {
                                     <Typography variant="body2" color="text.secondary">Released By:</Typography>
                                     <Typography>{loan.ReleasedBy}</Typography>
                                 </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: 'column' }}>
+                                    <Typography variant="body2" color="text.secondary">Client Name:</Typography>
+                                    <Typography>{loan.ClientName}</Typography>
+                                </Box>
                             </ListItem>
                         ))
                     )
                 ) : (
-                    <Typography align="center" color="text.secondary">No transactions found</Typography>
+                    <Typography align="center" color="text.secondary">No Found Data</Typography>
                 )}
             </List>
         </>
     ), [loanData, searchTerm]);
+    
 
     const renderDesktopView = useCallback(() => (
         <>
@@ -117,7 +145,7 @@ const TransactionHistory = () => {
                 <Table>
                     <TableHead sx={{ bgcolor: '#212529' }}>
                         <TableRow>
-                            {["Reference Number", "Amount", "Date", "Status", "Released By"].map((header, index) => (
+                            {["Reference Number", "Amount", "Date", "Status", "Released By", "Client Name"].map((header, index) => (
                                 <TableCell
                                     key={index}
                                     align="center"
@@ -134,22 +162,24 @@ const TransactionHistory = () => {
                     <TableBody>
                         {filteredLoanData().length > 0 ? (
                             filteredLoanData().map(loan => (
-                                loan.Payments.map((payment, index) => (
+                                [...loan.Payments].sort((a, b) => new Date(b.PaymentDate) - new Date(a.PaymentDate))
+                                .map((payment, index) => (
                                     <TableRow key={`${loan.LoanRefNo}-${index}`}>
                                         <TableCell align="center">{loan.LoanRefNo}</TableCell>
                                         <TableCell align="center">₱{payment.PaymentAmount?.toLocaleString()}</TableCell>
-                                        <TableCell align="center">{payment.PaymentDate}</TableCell>
+                                        <TableCell align="center">{formatDate(payment.PaymentDate)}</TableCell>
                                         <TableCell align="center">
                                             {loan.Status === 'Released' ? 'On Going' : loan.Status}
                                         </TableCell>
                                         <TableCell align="center">{loan.ReleasedBy}</TableCell>
+                                        <TableCell align="center">{loan.ClientName}</TableCell>
                                     </TableRow>
                                 ))
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={5} align="center">
-                                    <Typography color="text.secondary">No transactions found</Typography>
+                                <TableCell colSpan={6} align="center">
+                                    <Typography color="text.secondary">No Found Data</Typography>
                                 </TableCell>
                             </TableRow>
                         )}
@@ -158,7 +188,7 @@ const TransactionHistory = () => {
             </TableContainer>
         </>
     ), [loanData, searchTerm]);
-
+    
     return (
         <Box sx={{ p: { xs: 2, sm: 4 }, bgcolor: 'background.default' }}>
             {isMobile ? renderMobileView() : renderDesktopView()}

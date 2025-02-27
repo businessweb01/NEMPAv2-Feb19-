@@ -33,7 +33,7 @@ export default function OrderList() {
   const [customAmount, setCustomAmount] = useState('0');
   const [isBiWeekly, setIsBiWeekly] = useState(true); 
   const [isCustom, setIsCustom] = useState(false);
-  const [recomputeDate, setRecomputeDate] = useState('');
+  const [recomputeDate, setRecomputeDate] = useState(value => value < 0 ? 0 : value || '');
   const [startOfPayment, setStartOfPayment] = useState('');
   const[recomputedAmount, setRecomputedAmount] = useState('0');
   const[loanValue, setLoanValue] = useState('0');
@@ -45,6 +45,8 @@ export default function OrderList() {
   const [oldTotalInterest, setOldTotalInterest] = useState('0');
   const [BalanceRecompute, setBalanceRecompute] = useState('0');
   const [rebateAmount, setRebateAmount] = useState('0');
+  const [totalPayments, setTotalPayments] = useState('0');
+  const [interestAmount, setInterestAmount] = useState('0');
 
   const fetchLoans = useCallback(async () => {
     try {
@@ -204,12 +206,14 @@ export default function OrderList() {
       const data = await response.json();
       console.log(data);
       setLoanValue(data.LoanAmount);
-      setStartOfPayment(data.releasedWhen);
+      setStartOfPayment(data.PaymentStartAt);
       setTotalAmount(data.TotalAmount);
       setInterestRate(data.Interest);
       setRunningBalanceRecompute(data.running_balance);
       setBalanceRecompute(data.running_balance);
-      const monthsPassed = calculateMonthsDifference(data.releasedWhen);
+      setTotalPayments(data.TotalPayments);
+      setInterestAmount(data.interest_Amount);
+      const monthsPassed = calculateMonthsDifference(data.PaymentStartAt);
       let months;
       if(monthsPassed === 0){
         months = '';
@@ -230,22 +234,32 @@ export default function OrderList() {
     const value = e.target.value;
 
     // Check if the value is a number and greater than 0
-    if (value > 0) {
-      setRecomputeDate(value);  // Update the state if the value is positive
+    if (value < 0) {
+      setRecomputeDate(0);  // Update the state if the value is positive
+    }else{
+      setRecomputeDate(value);
     }
   };
   const computeRecompute = () => {
-    let InterestValue = loanValue * (interestRate / 100); //Calculate the Monthly Interest
-    let TotalInterest = InterestValue * recomputeDate; //Calculate the Total Interest
-    let loanAmountWithInterest = loanValue + TotalInterest; //Calculate the Loan Amount with Interest
-    let recomputedAmount =  totalAmount - runningBalanceRecompute; //Calculate the total paid amount
-    let newRecomputedAmount =loanAmountWithInterest- recomputedAmount; //Calculate the remaining amount to be paid
-    let rebateAmount = totalAmount - loanAmountWithInterest; //Calculate the rebate amount
-    console.log(InterestValue, TotalInterest, loanAmountWithInterest, recomputedAmount, newRecomputedAmount);
-    setRecomputedAmount(newRecomputedAmount);
+    let daterecomputed;
+    if(recomputeDate === 0 || recomputeDate < 0 ){
+      daterecomputed = 0;
+      setRecomputedAmount(runningBalanceRecompute); // Fixed variable name
+      setRebateAmount(0);
+      setRecomputeInterestValue(interestAmount);
+    }else{
+      daterecomputed = recomputeDate;
+      let InterestValue = loanValue * (interestRate / 100); //Calculate the Monthly Interest
+      let TotalInterest = InterestValue * daterecomputed; //Calculate the Total Interest
+      let loanAmountWithInterest = loanValue + TotalInterest; //Calculate the Loan Amount with Interest
+      let newRecomputedAmount = loanAmountWithInterest - totalPayments; //Calculate the remaining amount to be paid
+      let rebateAmount = totalAmount - loanAmountWithInterest; //Calculate the rebate amount
+      
+      setRecomputedAmount(newRecomputedAmount);
+      setRecomputeInterestValue(TotalInterest);
+      setRebateAmount(rebateAmount);
+    }
     setOpenRecomputeModal(true);
-    setRecomputeInterestValue(TotalInterest);
-    setRebateAmount(rebateAmount);
   }
   const isDueToday = (dueDate) => {
     const today = new Date();
@@ -264,6 +278,39 @@ export default function OrderList() {
       loan.customer.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
+
+  const handleRecomputeSubmit = async (loanId) => {
+    setCurrentLoanId(loanId);
+    setOpenRecomputeModal(true);
+    const dateNow = new Date().toISOString().split("T")[0];
+    const status = 'Recomputed';
+    const balance = 0;
+    let daterecomputed;
+    if(recomputeDate === 0){
+      daterecomputed = 0;
+    }else if(recomputeDate>0){
+      daterecomputed = recomputeDate;
+    }else{
+      daterecomputed = recomputeDate;
+    }
+    try{
+      const response = await fetch("http://localhost:5000/PayRecomputedLoan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loanId, recomputedAmount, recomputeInterestValue, dateNow, status, balance, startOfPayment, daterecomputed})
+      });
+      const data = await response.json();
+      if(response.ok){
+        toast.success(data.message || "Recomputed successfully!", { autoClose: 2000, containerId: 'main-toast' });
+        fetchLoans();
+      }else{
+        toast.error(data.message || "An error occurred while recomputing.", { autoClose: 2000, containerId: 'main-toast' });
+      }
+    }catch(error){
+      console.error("Error recomputing:", error);
+      toast.error("An error occurred while recomputing.", { autoClose: 2000, containerId: 'main-toast' });
+    }
+  }
 
   return (
     <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
@@ -492,7 +539,7 @@ export default function OrderList() {
                 <Input
                 label="Months Passed"
                 variant="outlined"
-                value={recomputeDate}
+                value={recomputeDate < 0 ? 0 : recomputeDate}
                 type='number'
                 step={1}
                 onChange={handleDateChange}
@@ -570,7 +617,7 @@ export default function OrderList() {
               </Button>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Button variant="outlined" color="success" onClick={() => setOpenRecomputeModal(false)}>
+              <Button variant="outlined" color="success"onClick={() => handleRecomputeSubmit(currentLoanId)}>
                 Make Payment
               </Button>
             </Box>
