@@ -323,17 +323,31 @@ export default function OrderList() {
         onChange={(e) => setSearchQuery(e.target.value)}
         sx={{ flexGrow: 1, marginBottom: 3}}
       />
-      {getFilteredLoans().map((loan) => (  
+     {getFilteredLoans()
+      .sort((a, b) => {
+        const aIsDueToday = isDueToday(a.dueDate);
+        const bIsDueToday = isDueToday(b.dueDate);
+        const aIsPassedDue = isPassedDue(a.dueDate);
+        const bIsPassedDue = isPassedDue(b.dueDate);
+
+        // Prioritize "Due Today" and "Passed Due" loans
+        if (aIsDueToday && !bIsDueToday) return -1;
+        if (!aIsDueToday && bIsDueToday) return 1;
+        if (aIsPassedDue && !bIsPassedDue) return -1;
+        if (!aIsPassedDue && bIsPassedDue) return 1;
+        return 0;
+      })
+      .map((loan) => (
         <List key={loan.id} size="sm" sx={{ '--ListItem-paddingX': 0 }}>
           <ListItem
-             sx={{
+            sx={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'start',
               borderRadius: 2, // Rounded corners for a card-like shape
               boxShadow: 5, // Stronger shadow for the card effect (higher values = stronger shadows)
             }}
-            >
+          >
             <ListItemContent sx={{ display: 'flex', gap: 2, alignItems: 'start' }}>
               <div item={true}>
                 <Typography gutterBottom sx={{ fontWeight: 600 }}>
@@ -348,22 +362,27 @@ export default function OrderList() {
                     mb: 1,
                   }}
                 >
-                  <Box sx={{ display: 'flex',flexDirection:'column', gap: 1 }}>
-                  <Typography level="body-xs">Loan Ref. No:
-                      <Typography level="body-xs" sx={{fontWeight:'bold', marginLeft:1}}>{loan.id}</Typography>
-                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography level="body-xs">Loan Ref. No:
+                      <Typography level="body-xs" sx={{ fontWeight: 'bold', marginLeft: 1 }}>
+                        {loan.id}
+                      </Typography>
+                    </Typography>
                   </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Button variant='soft' color='primary'size="sm"  
-                  sx={{ whiteSpace: 'nowrap', color: 'primary' }}
-                  onClick={() => handleRecompute(loan.id, loan.amount, loan.biWeeklyPay)}
+                  <Button
+                    variant='soft' color='primary' size="sm"
+                    sx={{ whiteSpace: 'nowrap', color: 'primary' }}
+                    onClick={() => handleRecompute(loan.id, loan.amount, loan.biWeeklyPay)}
                   >
-                      Recompute
+                    Recompute
                   </Button>
-                  <Button variant='soft' color='success' size="sm"  
-                  sx={{ whiteSpace: 'nowrap', color: 'primary' }}
-                  onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
+                  <Button
+                    variant='soft' color='success' size="sm"
+                    sx={{ whiteSpace: 'nowrap', color: 'primary' }}
+                    onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
+                    disabled={!isDueToday(loan.dueDate) && !isPassedDue(loan.dueDate)}
                   >
                     Make Payment
                   </Button>
@@ -377,20 +396,21 @@ export default function OrderList() {
                 </Typography>
               </Chip>
             ) : isPassedDue(loan.dueDate) ? (
-              <Chip label="Passed Due" variant="soft" color="error" endDecorator={<TbCalendarDue />}>
+              <Chip label="Passed Due" variant="soft" color="danger" endDecorator={<TbCalendarDue />}>
                 <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
                   Passed Due
                 </Typography>
               </Chip>
             ) : (
-              <Typography level="body-xs" sx={{ cursor: 'pointer' }}>
-               Due On {formatDate(loan.dueDate)}
+              <Typography level="body-xs" sx={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Due On {formatDate(loan.dueDate)}
               </Typography>
             )}
           </ListItem>
           <ListDivider />
         </List>
       ))}
+
 
 <Modal open={open} onClose={() => setOpen(false)}>
         <ModalDialog>

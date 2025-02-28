@@ -1,23 +1,41 @@
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import SignUp from './pages/SignUp.jsx'; // Import SignUp from the correct file path
-import SignIn from './pages/SignIn.jsx'; // Import SignIn from the correct file path
-import MainDashBoard from './MainDashBoard.jsx'; // Import MainDashBoard
+import SignUp from './pages/SignUp';
+import SignIn from './pages/SignIn';
+import MainDashBoard from './MainDashBoard';
+import UnauthorizedAccess from './UnauthorizedAccess'; 
+import ProtectedRoute from './ProtectedRoute';
+import './App.css';
 
 function App() {
+  const [inTransition, setInTransition] = useState(false);
+
+  const handleRouteChange = () => {
+    setInTransition(true);
+    setTimeout(() => setInTransition(false), 500); // Transition lasts 500ms
+  };
+
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<SignIn />} />
-        
-        {/* Route for SignUp page */}
-        <Route path="/SignUp" element={<SignUp />} />
-        
-        {/* Route for SignIn page */}
-        <Route path="/SignIn" element={<SignIn />} />
-        
-        {/* Route for MainDashBoard */}
-        <Route path="/MainDashBoard" element={<MainDashBoard />} />
-      </Routes>
+      <div className="app-container">
+        <div
+          className={`page ${inTransition ? 'page-exit' : 'page-enter-active'}`}
+        >
+          <Routes>
+            <Route path="/SignIn" element={<SignIn />} />
+            <Route path="/SignUp" element={<SignUp />} />
+            <Route
+              path="/MainDashBoard"
+              element={
+                <ProtectedRoute>
+                  <MainDashBoard />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/unauthorized" element={<UnauthorizedAccess />} />
+          </Routes>
+        </div>
+      </div>
     </Router>
   );
 }

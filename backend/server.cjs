@@ -1409,6 +1409,52 @@ app.post('/create-coop-account', async (req, res) => {
     res.status(500).json({ message: 'Error creating coop account' });
   }
 });
+
+
+app.post('/SignIn', async (req, res) => {
+  const { email, password } = req.body;
+
+  // Validate input
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
+
+  try {
+    // Connect to the database
+    const pool = await mssql.connect(sqlConfig);
+
+    // Query to fetch the hashed password for the provided email
+    const result = await pool.request()
+      .input('email', mssql.NVarChar, email)  // Using parameterized queries to avoid SQL injection
+      .query('SELECT password, fname, lname FROM nempa_Admin WHERE email = @email');
+
+    // Check if the email exists in the database
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Email not found in database' });
+    }
+
+    const hashedPassword = result.recordset[0].password;  // Retrieve hashed password
+
+    // Compare the provided password with the hashed password
+    const isMatch = await bcrypt.compare(password, hashedPassword);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid password' });
+    }
+    const adminName = result.recordset[0].fname + " " + result.recordset[0].lname;
+    // Create a JWT token (you can add user info like ID or role here)
+    const Admintoken = jwt.sign({ adminName },   process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    // Respond with success and the token
+    res.status(200).json({ message: 'Login successful', Admintoken });
+  } catch (error) {
+    console.error("Error during sign-in:", error);
+    res.status(500).json({ message: 'Error during login' });
+  }
+});
+
+
+
 // Start the server
 app.listen(port, async () => {
   await connectToDatabase(); // Ensure database is connected before accepting requests

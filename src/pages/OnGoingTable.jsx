@@ -444,7 +444,7 @@ export default function OrderTable() {
                           color="success"
                           sx={{ cursor: 'pointer' }}
                           onClick={() => handleLoanClick(loan.id, loan.amount, loan.biWeeklyPay)}
-                          disabled={!isDueToday(loan.dueDate)} // Disable if not due today
+                          disabled={!isDueToday(loan.dueDate) && !isPassedDue(loan.dueDate)}
                         >
                           Make Payment
                         </Chip>

@@ -11,6 +11,8 @@ import { styled } from '@mui/material/styles';
 import Neeco from '../../public/NeecoLogo.svg';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: 'flex',
@@ -31,46 +33,9 @@ export default function SignInCard() {
   const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
   const [passwordError, setPasswordError] = React.useState(false);
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
   const navigate = useNavigate(); // Hook to navigate between routes
-
-  const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent default form submission
-
-    // Validate inputs before submitting
-    if (!validateInputs()) return;
-
-    // Prepare credentials for the API request
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    navigate('/MainDashBoard');
-    // try {
-    //   // Make a POST request to the backend to authenticate the user
-    //   const response = await fetch('https://your-backend-api.com/login', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({ email, password }),
-    //   });
-
-    //   // Check if the authentication was successful
-    //   if (response.ok) {
-    //     const data = await response.json();
-        
-    //     // Store authentication token securely (e.g., JWT)
-    //     localStorage.setItem('authToken', data.token);
-
-    //     // Redirect to MainDashBoard after successful login
-    //     navigate('/MainDashBoard');
-    //   } else {
-    //     // Handle invalid credentials
-    //     alert('Invalid credentials, please try again.');
-    //   }
-    // } catch (error) {
-    //   console.error('Login failed', error);
-    //   alert('An error occurred. Please try again later.');
-    // }
-  };
 
   const validateInputs = () => {
     const email = document.getElementById('email');
@@ -99,8 +64,46 @@ export default function SignInCard() {
     return isValid;
   };
 
+  const handleSubmit = async (event) => {
+    event.preventDefault(); // Prevent default form submission
+  
+    // Validate inputs before submitting (assuming validateInputs is implemented)
+    if (!validateInputs()) return;
+  
+    try {
+      // Make a POST request to the backend to authenticate the user
+      const response = await fetch('http://localhost:5000/SignIn', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+  
+      // Check if the authentication was successful
+      if (response.ok) {
+        const data = await response.json();
+  
+        // Store authentication token securely (e.g., JWT)
+        localStorage.setItem('authToken', data.Admintoken); // Save the token in localStorage
+        toast.success('Login successful');
+        setTimeout(() => {
+          navigate('/MainDashBoard');
+        }, 1500);
+      } else {
+        // Handle invalid credentials
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Invalid credentials, please try again.');
+      }
+    } catch (error) {
+      console.error('Login failed', error);
+      toast.error('An error occurred. Please try again later.');
+    }
+  };
+
   return (
     <Card variant="outlined">
+      <ToastContainer position="top-center" />
       <Typography variant="h6" noWrap component="div" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: '#03431c' }}>
         <img src={Neeco} alt="Neeco Logo" style={{ width: '50px', height: 'auto', marginRight: '10px' }} />
         NEECO II AREA 1
@@ -124,6 +127,8 @@ export default function SignInCard() {
             fullWidth
             variant="outlined"
             color={emailError ? 'error' : 'primary'}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </FormControl>
         <FormControl>
@@ -140,6 +145,8 @@ export default function SignInCard() {
             fullWidth
             variant="outlined"
             color={passwordError ? 'error' : 'primary'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </FormControl>
         <Button type="submit" fullWidth variant="contained">

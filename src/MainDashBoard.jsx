@@ -18,6 +18,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Slide from '@mui/material/Slide';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import  jwtDecode  from 'jwt-decode'; 
 import { 
   Box, 
   Drawer, 
@@ -40,6 +41,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import Neeco from '../public/NeecoLogo.svg';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 
 // Pages
 import Loan from './Checkout';
@@ -69,8 +71,6 @@ const theme = createTheme({
     },
   },
 });
-const name = "Eugene Van Linsangan";
-const email = "vaneugene01@gmail.com";
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
@@ -88,7 +88,48 @@ const DashboardLayoutBasic = () => {
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
   const [usedBalance, setUsedBalance] = useState(0);
   const [availableBalance, setAvailableBalance] = useState(0);
+  const [adminName, setAdminName] = useState('');
+  const [openDialog, setOpenDialog] = useState(false); // State to control the dialog visibility
+  const navigate = useNavigate();
 
+  useEffect(() => {
+    // Retrieve the token from localStorage
+    const Admintoken = localStorage.getItem('authToken');
+
+    if (Admintoken) {
+      try {
+        // Decode the token using jwt-decode
+        const decodedToken = jwtDecode(Admintoken);
+
+        // Set email and adminName from the decoded token
+        setAdminName(decodedToken.adminName);
+        console.log(decodedToken);
+      } catch (error) {
+        console.error('Error decoding the token:', error);
+      }
+    } else {
+      console.error('No token found');
+    }
+  }, []); 
+    // Handle clicking the logout icon
+    const handleLogoutClick = () => {
+      setOpenDialog(true); // Show the dialog
+    };
+  
+    // Handle closing the dialog without logging out
+    const handleCloseDialog = () => {
+      setOpenDialog(false); // Close the dialog without logging out
+    };
+  
+    // Handle confirming logout
+    const handleConfirmLogout = () => {
+      // Clear the token from localStorage
+      localStorage.removeItem('authToken');
+  
+      // Optionally, redirect to the login page
+      navigate('/SignIn'); // Change this to the route of your login page
+    };
+    
   const handleClickOpen = () => {
     setOpen(true);
   };
@@ -379,7 +420,7 @@ const DashboardLayoutBasic = () => {
                 color: '#2c3e50',
               }}
             >
-              {name}
+              {adminName}
             </Typography>
             <Typography
               variant="body2"
@@ -389,23 +430,38 @@ const DashboardLayoutBasic = () => {
                 fontWeight: 500,
               }}
             >
-              {email}
+            NEMPA ADMIN
             </Typography>
           </Box>
           <Box>
-            <LogoutRoundedIcon sx={{ color: '#d90429', fontSize: '1.5rem' }} />
+            <LogoutRoundedIcon sx={{ color: '#d90429', fontSize: '1.5rem' }} onClick={handleLogoutClick} />
           </Box>
         </Box>
       </Box>
 
     </Box>
   );
-  
-
   return (
     <ThemeProvider theme={theme}>
       <ToastContainer />
       <Box sx={{ display: 'flex' }}>
+         {/* Dialog for logout confirmation */}
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
+        <DialogTitle>Confirm Logout</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to log out?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} color="error" variant="outlined">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmLogout} color="primary" variant="contained">
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
         <CssBaseline />
         <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
           <Toolbar>
