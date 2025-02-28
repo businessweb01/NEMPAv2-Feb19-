@@ -22,6 +22,7 @@ function App() {
           className={`page ${inTransition ? 'page-exit' : 'page-enter-active'}`}
         >
           <Routes>
+            <Route path="/" exact element={<SignIn />} />
             <Route path="/SignIn" element={<SignIn />} />
             <Route path="/SignUp" element={<SignUp />} />
             <Route

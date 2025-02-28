@@ -2177,3 +2177,7 @@ const DashboardLayoutBasic = () => {
 };
 
 export default DashboardLayoutBasic;
+
+For Dynamic connection
+const urlApi = import.meta.env.VITE_API_URL;
+      const response = await fetch(`${urlApi}
