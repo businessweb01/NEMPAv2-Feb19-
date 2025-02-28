@@ -77,14 +77,16 @@ export default function SignUp(props) {
       setEmailErrorMessage('');
     }
 
-    if (!password || password.length < 8) {
+    if (password.trim().length < 8) {
       setPasswordError(true);
       setPasswordErrorMessage('Password must be at least 8 characters long.');
       isValid = false;
+      console.log(password.trim().length);
     } else {
       setPasswordError(false);
       setPasswordErrorMessage('');
     }
+    
 
     if (!name || name.length < 1) {
       setNameError(true);
@@ -102,6 +104,7 @@ export default function SignUp(props) {
     const password = event.target.value;
     const result = zxcvbn(password);  // Get password strength
     setPasswordStrength(result.score);  // Set password strength score
+    setPassword(password);
   };
   const getPasswordStrengthColor = (score) => {
     if (score === 1) return 'red';
