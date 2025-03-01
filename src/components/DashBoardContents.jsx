@@ -16,8 +16,8 @@ const DashboardContents = () => {
     setChartMounted(true);
 
     // Create WebSocket connection
-    const socket = new WebSocket('ws://localhost:8080');
-
+    const socket = new WebSocket('ws:192.168.1.154:8080');
+    // const socket = new WebSocket('ws://192.168.1.154:8080');
     // Listen for data from the WebSocket server
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);

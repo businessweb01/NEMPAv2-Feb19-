@@ -12,7 +12,7 @@ const bcrypt = require('bcryptjs');
 const app = express();
 const port = 5000;
 const wss = new WebSocket.Server({ port: 8080 }, () => {
-  console.log("WebSocket Server started on ws://localhost:8080");
+  console.log("WebSocket Server started on ws://192.168.1.154:8080");
 });
 
 const clients = new Set(); // Store connected clients

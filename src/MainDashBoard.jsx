@@ -141,8 +141,8 @@ const DashboardLayoutBasic = () => {
     const connectWebSocket = () => {
       if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) return;
 
-      wsRef.current = new WebSocket("ws://localhost:8080");
-
+      // wsRef.current = new WebSocket("ws://localhost:8080");
+      wsRef.current = new WebSocket('ws://192.168.1.154:8080');
       wsRef.current.onopen = () => {
         console.log("WebSocket connected");
         reconnectAttempts.current = 0;
