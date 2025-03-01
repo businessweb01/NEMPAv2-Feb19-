@@ -38,10 +38,11 @@ export default function OrderTable() {
   const [approvers, setApprovers] = React.useState({}); // Initialize as an empty array
   const [releasedBy, setReleasedBy] = useState('');
   const [PaymentStartAt, setPaymentStartAt] = useState('');
+  const urlApi = import.meta.env.VITE_API_URL;
   // Fetch Pending Loans
   const fetchLoans = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5000/PendingLoans');
+      const response = await fetch(`${urlApi}/PendingLoans`);
       const data = await response.json();
       setLoans(data);
   
@@ -67,7 +68,7 @@ export default function OrderTable() {
     try {
       const approvedDate = new Date().toISOString().split('T')[0];
   
-      const response = await fetch('http://localhost:5000/submitLoanApprovals', {
+      const response = await fetch(`${urlApi}/submitLoanApprovals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -121,7 +122,7 @@ export default function OrderTable() {
     const PaymentStartAt = addBusinessDays(releasedDate, 15); // Add 15 business days
     setPaymentStartAt(PaymentStartAt);
     try {
-      const response = await fetch(`http://localhost:5000/fetchApprovers/${loanId}`);
+      const response = await fetch(`${urlApi}/fetchApprovers/${loanId}`);
       const data = await response.json();
       if (data.success) {
         setApprovers((prevState) => ({
@@ -164,7 +165,7 @@ export default function OrderTable() {
     setPaymentStartAt(PaymentStartAt);
   
     try {
-      const response = await fetch('http://localhost:5000/releaseLoan', {
+      const response = await fetch(`${urlApi}/releaseLoan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

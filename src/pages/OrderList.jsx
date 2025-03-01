@@ -35,11 +35,11 @@ export default function OrderList() {
   const [loanApprovers, setLoanApprovers] = useState({}); // Store approvers for each loan by ID
   const [approvers, setApprovers] = useState({}); // Initialize as an empty array
   const [releasedBy, setReleasedBy] = useState('');
-
+  const urlApi = import.meta.env.VITE_API_URL;
   // Fetch Pending Loans and set listItems to the fetched data
   const fetchLoans = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5000/PendingLoans');
+      const response = await fetch(`${urlApi}/PendingLoans`);
       const data = await response.json();
       setListItems(data); // Set the fetched loans data into listItems
 
@@ -61,7 +61,7 @@ export default function OrderList() {
   const handleSubmitApprover = (loanId) => {
     const approvedDate = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
   
-    fetch('http://localhost:5000/submitLoanApprovals', {
+    fetch(`${urlApi}/submitLoanApprovals`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -115,7 +115,7 @@ export default function OrderList() {
   setClientName(clientName);
 
   try {
-    const response = await fetch(`http://localhost:5000/fetchApprovers/${loanId}`);
+    const response = await fetch(`${urlApi}/fetchApprovers/${loanId}`);
     const data = await response.json();
     if (data.success) {
       setApprovers((prevState) => ({
@@ -137,7 +137,7 @@ const handleReleasing = async (loanId) => {
   }
   const releasedDate = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
   try {
-    const response = await fetch('http://localhost:5000/releaseLoan', {
+    const response = await fetch(`${urlApi}/releaseLoan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

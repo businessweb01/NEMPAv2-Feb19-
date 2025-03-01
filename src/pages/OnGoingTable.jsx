@@ -44,10 +44,11 @@ export default function OrderTable() {
   const [rebateAmount, setRebateAmount] = useState('0');
   const [totalPayments, setTotalPayments] = useState('0');
   const [interestAmount, setInterestAmount] = useState('0');
+  const urlApi = import.meta.env.VITE_API_URL;
   // Fetch Pending Loans
   const fetchLoans = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:5000/OnGoingLoans");
+      const response = await fetch(`${urlApi}/OnGoingLoans`);
       const data = await response.json();
       
       setLoans(data);
@@ -138,7 +139,7 @@ export default function OrderTable() {
     }
   
     try {
-      const response = await fetch("http://localhost:5000/make-payment", {
+      const response = await fetch(`${urlApi}/make-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentLoanId, paymentDate, payment: paymentAmount }),
@@ -194,7 +195,7 @@ export default function OrderTable() {
     setOpenReleaseModal(true);
     
     try{
-      const response = await fetch("http://localhost:5000/fetchLoanDetails", {
+      const response = await fetch(`${urlApi}/fetchLoanDetails`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loanId }),
@@ -285,7 +286,7 @@ export default function OrderTable() {
       daterecomputed = recomputeDate;
     }
     try{
-      const response = await fetch("http://localhost:5000/PayRecomputedLoan", {
+      const response = await fetch(`${urlApi}/PayRecomputedLoan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ loanId, recomputedAmount, recomputeInterestValue, dateNow, status, balance, startOfPayment, daterecomputed})

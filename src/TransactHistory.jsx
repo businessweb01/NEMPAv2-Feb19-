@@ -7,11 +7,13 @@ const TransactionHistory = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const urlApi = import.meta.env.VITE_API_URL;
+
 
     useEffect(() => {
         async function fetchLoanDetails() {
             try {
-                const response = await fetch('http://localhost:5000/fetch-all-loan-details');
+                const response = await fetch(`${urlApi}/fetch-all-loan-details`);
                 const data = await response.json();
     
                 // Check if the returned data is an array

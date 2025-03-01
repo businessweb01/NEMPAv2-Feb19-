@@ -36,10 +36,10 @@ export default function OrderList() {
   const [total, setTotalAmount] = useState(0);
   const [biWeeklyAmortization, setBiWeeklyAmortization] = useState(0);
   const [clientId, setClientId] = useState(null);
-
+  const urlApi = import.meta.env.VITE_API_URL;
   const fetchLoans = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:5000/PaidLoans");
+      const response = await fetch(`${urlApi}/PaidLoans`);
       const data = await response.json();
       setLoans(data);
     } catch (error) {
@@ -102,7 +102,7 @@ export default function OrderList() {
     const loanId = currentLoanId;
     // Ensure currentLoanId is set before this
     try{
-      const response = await fetch(`http://localhost:5000/FetchLoanDetails/${loanId}`);
+      const response = await fetch(`${urlApi}/FetchLoanDetails/${loanId}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -158,7 +158,7 @@ export default function OrderList() {
   console.log("Bi-Weekly Amortization:", biWeeklyAmortization);
 
   try {
-    const response = await fetch('http://localhost:5000/submit-loan', {
+    const response = await fetch(`${urlApi}/submit-loan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json', // Ensure this header is set for JSON data

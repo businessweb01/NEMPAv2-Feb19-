@@ -65,6 +65,7 @@ export default function SignUp(props) {
   const [name, setName] = useState('');
   const [lastName, setLastName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const urlApi = import.meta.env.VITE_API_URL;
   const validateInputs = () => {
     let isValid = true;
 
@@ -145,7 +146,7 @@ export default function SignUp(props) {
         // Hash the password with a salt of 10 rounds
         const salt = await bcrypt.genSalt(10);  // Generating salt with 10 rounds
         const hashedPassword = await bcrypt.hash(password, salt); // Hashing the password
-        const response = await fetch('http://localhost:5000/create-coop-account', {
+        const response = await fetch(`${urlApi}/create-coop-account`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
