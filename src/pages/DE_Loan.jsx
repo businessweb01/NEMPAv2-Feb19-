@@ -62,7 +62,7 @@ export default function ED_Loan({setToastActive ,setActiveStep}) {
   const [loanDate, setLoanDate] = React.useState(new Date().toISOString().slice(0, 10)); // Default to today's date
   const [clientId, setClientId] = useState(null);
   const [biWeeklyAmortization, setBiWeeklyAmortization] = useState(0);
-  
+  const urlApi = import.meta.env.VITE_API_URL;
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (token) {
@@ -114,7 +114,7 @@ export default function ED_Loan({setToastActive ,setActiveStep}) {
     };
    console.log(loanData); 
     try {
-      const response = await fetch('http://localhost:5000/submit-loan', {
+      const response = await fetch(`${urlApi}/submit-loan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

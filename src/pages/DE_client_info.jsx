@@ -61,7 +61,7 @@ export default function SignUp({setToastActive}) {
   // const [toastActive, setToastActive] = useState(false);
   const [birthday, setBirthday] = useState(null);
   const [validIdFile, setValidIdFile] = useState(null);
-
+  const urlApi = import.meta.env.VITE_API_URL;
   const handleFileChange = (event) => {
     const file = event.target.files[0];
 
@@ -117,7 +117,7 @@ export default function SignUp({setToastActive}) {
               }
 
               try {
-                const response = await fetch('http://localhost:5000/submit', {
+                const response = await fetch(`${urlApi}/submit`, {
                   method: 'POST',
                   body: formData,
                 });

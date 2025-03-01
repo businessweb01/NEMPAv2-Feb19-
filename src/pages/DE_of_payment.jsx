@@ -34,7 +34,7 @@ const Payment = () => {
   const [advancePayments, setAdvancePayments] = useState(''); // Now a custom value set by the user
   const [isAdvancePaymentExceeding, setIsAdvancePaymentExceeding] = useState(false); // State to track validation
   const [isAdvancePaymentTooLow, setIsAdvancePaymentTooLow] = useState(false); 
-
+  const urlApi = import.meta.env.VITE_API_URL;
   useEffect(() => {
     const loanRefNoToken = localStorage.getItem('jwtToken');
     if (loanRefNoToken) {
@@ -62,7 +62,7 @@ const Payment = () => {
     
   const fetchLoanData = async (loanRefNo, clientId) => {
     try {
-      const response = await fetch(`http://localhost:5000/loanData`, {
+      const response = await fetch(`${urlApi}/loanData`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`,
@@ -134,7 +134,7 @@ const Payment = () => {
     }
   
     try {
-      const response = await fetch(`http://localhost:5000/make-payment`, {
+      const response = await fetch(`${urlApi}/make-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

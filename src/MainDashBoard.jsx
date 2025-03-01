@@ -91,7 +91,7 @@ const DashboardLayoutBasic = () => {
   const [adminName, setAdminName] = useState('');
   const [openDialog, setOpenDialog] = useState(false); // State to control the dialog visibility
   const navigate = useNavigate();
-
+  const urlApi = import.meta.env.VITE_API_URL;
   useEffect(() => {
     // Retrieve the token from localStorage
     const Admintoken = localStorage.getItem('authToken');
@@ -200,7 +200,7 @@ const DashboardLayoutBasic = () => {
   };
   const getBalance = async () => {
     try {
-      const response = await fetch('http://localhost:5000/getBalance');
+      const response = await fetch(`${urlApi}/getBalance`);
       if (!response.ok) {
         throw new Error('Failed to fetch balance data');
       }
@@ -218,7 +218,7 @@ const DashboardLayoutBasic = () => {
   const handleUpdateBalance = async () => {
     const password = passwordInput;  // User's input from the UI
     try {
-      const response = await fetch('http://localhost:5000/updateBalance', {
+      const response = await fetch(`${urlApi}/updateBalance`, {
         method: 'POST',
         body: JSON.stringify({ availableBalance, usedBalance, password }),
         headers: {
@@ -228,8 +228,11 @@ const DashboardLayoutBasic = () => {
       if (response.ok) {
         toast.success("Balance updated successfully");
         getBalance();
+        setPasswordInput('');  // Clear the password input field
+        // console.log(passwordInput); 
       } else {
         toast.error("Invalid password");
+        setPasswordInput('');  // Clear the password input field
       }
     } catch (error) {
       toast.error("Failed to update balance");
@@ -497,11 +500,13 @@ const DashboardLayoutBasic = () => {
                 label="Password"
                 type="password"
                 variant="outlined"
+                value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 fullWidth
                 size="small"
                 sx={{ marginTop: 2 }}
                 required
+                
               />
             </DialogContent>
             <DialogActions sx={{ justifyContent: 'space-between' }}>

@@ -36,7 +36,7 @@ export default function SignInCard() {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const navigate = useNavigate(); // Hook to navigate between routes
-
+  const urlApi = import.meta.env.VITE_API_URL;
   const validateInputs = () => {
     const email = document.getElementById('email');
     const password = document.getElementById('password');
@@ -72,7 +72,7 @@ export default function SignInCard() {
   
     try {
       // Make a POST request to the backend to authenticate the user
-      const response = await fetch('http://localhost:5000/SignIn', {
+      const response = await fetch(`${urlApi}/SignIn`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

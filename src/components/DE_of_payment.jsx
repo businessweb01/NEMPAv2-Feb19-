@@ -82,10 +82,10 @@ const Payment = () => {
     const totalAdvancePayment = advancePayments * fixedAmortizationPayment;
     const updatedLoanAmount = loanAmount - (fixedPrincipalPayment + totalAdvancePayment);
     const updatedTotalAmount = totalAmount - (fixedAmortizationPayment * (advancePayments + 1));
-
+    const urlApi = import.meta.env.VITE_API_URL;
     try {
       // Make a request to the server to update the loan data
-      const response = await fetch(`http://localhost:5000/updateLoanData`, {
+      const response = await fetch(`${urlApi}/updateLoanData`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
